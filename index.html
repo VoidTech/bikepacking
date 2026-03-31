@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bikepacking: Stockholm → Alps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --ink: #1a1814;
+    --paper: #f5f0e8;
+    --accent: #c8440a;
+    --gold: #c9943a;
+    --muted: #7a7060;
+    --green: #3a6b3a;
+    --blue: #2a5580;
+    --card: #fffdf7;
+    --border: #d8cfc0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    padding: 12px 24px 10px;
+    background: var(--ink);
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    flex-shrink: 0;
+    border-bottom: 3px solid var(--accent);
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    color: var(--paper);
+    letter-spacing: 0.01em;
+  }
+
+  header .sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  header .badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 9px 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    cursor: pointer;
+    color: var(--muted);
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    background: rgba(200,68,10,0.04);
+  }
+
+  .tab-content { display: none; flex: 1; overflow-y: auto; }
+  .tab-content.active { display: block; }
+
+  /* STATS STRIP */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .stat {
+    background: var(--card);
+    padding: 10px 14px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  /* WAYPOINTS */
+  .waypoint-list { padding: 8px; }
+
+  .waypoint {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 2px solid transparent;
+    margin-bottom: 2px;
+  }
+
+  .waypoint:hover { background: rgba(200,68,10,0.05); border-left-color: var(--accent); }
+  .waypoint.active { background: rgba(200,68,10,0.08); border-left-color: var(--accent); }
+
+  .wp-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 500;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .wp-info { flex: 1; }
+
+  .wp-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .wp-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .wp-type {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    margin-top: 3px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  /* DAILY PLAN */
+  .day-block {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+  }
+
+  .day-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .day-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--accent);
+    line-height: 1;
+    min-width: 28px;
+  }
+
+  .day-title {
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+
+  .day-mode {
+    margin-left: auto;
+    font-size: 0.65rem;
+    padding: 1px 7px;
+    border-radius: 10px;
+  }
+
+  .day-desc {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+    padding-left: 36px;
+  }
+
+  .day-dist {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--green);
+    padding-left: 36px;
+    margin-top: 3px;
+  }
+
+  /* LEGEND */
+  .legend {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--card);
+  }
+
+  .legend-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .legend-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  .legend-line {
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+  }
+
+  /* MAP */
+  #map {
+    flex: 1;
+    background: #e8e0d0;
+  }
+
+  /* POPUP */
+  .leaflet-popup-content-wrapper {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+
+  .leaflet-popup-content {
+    margin: 0;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .popup-inner { padding: 12px 14px; }
+
+  .popup-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .popup-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+
+  .popup-body {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .popup-dist {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--green);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* TYPE COLORS */
+  .type-train { background: rgba(42,85,128,0.12); color: var(--blue); }
+  .type-bike { background: rgba(58,107,58,0.12); color: var(--green); }
+  .type-rest { background: rgba(201,148,58,0.12); color: var(--gold); }
+  .type-summit { background: rgba(200,68,10,0.12); color: var(--accent); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* Toggle layer button */
+  .layer-toggle {
+    position: absolute;
+    bottom: 28px;
+    right: 12px;
+    z-index: 1000;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    cursor: pointer;
+    color: var(--ink);
+    letter-spacing: 0.06em;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+
+  .layer-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  .info-box {
+    padding: 12px 14px;
+    background: rgba(200,68,10,0.05);
+    border-left: 2px solid var(--accent);
+    margin: 8px;
+    border-radius: 2px;
+  }
+
+  .info-box p {
+    font-size: 0.72rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  .info-box strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* POI TAB */
+  .poi-filters {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--card);
+  }
+  .poi-search {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    background: var(--paper);
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .poi-search:focus { outline: none; border-color: var(--accent); }
+  .poi-filter-row {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    padding: 2px 7px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    cursor: pointer;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    transition: all 0.15s;
+  }
+  .filter-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+  .filter-btn.special {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .filter-btn.special.active {
+    background: var(--gold);
+    color: white;
+    border-color: var(--gold);
+  }
+  .poi-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    padding: 4px 10px 0;
+    flex-shrink: 0;
+  }
+  .poi-list { overflow-y: auto; flex: 1; }
+  .poi-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .poi-item:hover { background: rgba(200,68,10,0.04); }
+  .poi-item.active { background: rgba(200,68,10,0.08); }
+  .poi-emoji {
+    font-size: 1rem;
+    line-height: 1.4;
+    flex-shrink: 0;
+    width: 22px;
+    text-align: center;
+  }
+  .poi-info { flex: 1; min-width: 0; }
+  .poi-name {
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .poi-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .poi-badges {
+    display: flex;
+    gap: 3px;
+    margin-top: 2px;
+    flex-wrap: wrap;
+  }
+  .badge-star {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: rgba(201,148,58,0.15);
+    color: var(--gold);
+    font-family: 'DM Mono', monospace;
+  }
+  .badge-breath {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: rgba(200,68,10,0.12);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+  }
+  .poi-terrain {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.58rem;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: rgba(122,112,96,0.1);
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  /* POI marker styles */
+  .poi-marker {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #7a5c8a;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+  }
+  /* Type colors for POI */
+  .ptype-summit { background: rgba(200,68,10,0.12); color: var(--accent); }
+  .ptype-city   { background: rgba(42,85,128,0.12); color: var(--blue); }
+  .ptype-village { background: rgba(201,148,58,0.12); color: var(--gold); }
+  .ptype-water  { background: rgba(58,107,58,0.15); color: var(--green); }
+  .ptype-nature { background: rgba(58,107,58,0.12); color: var(--green); }
+  .ptype-viewpoint { background: rgba(122,112,96,0.12); color: var(--muted); }
+  .ptype-gorge  { background: rgba(200,68,10,0.08); color: var(--accent); }
+  .ptype-poi    { background: rgba(122,112,96,0.1); color: var(--muted); }
+
+  /* Tab content flex fix for poi tab */
+  #tab-pois {
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+  }
+  #tab-pois.active { display: flex; }
+
+  /* Override for non-poi tabs to not break */
+  #tab-waypoints, #tab-itinerary, #tab-tips {
+    overflow-y: auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Bikepacking: Stockholm → Alps</h1>
+    <div class="sub">14-day round trip · Train + Gravel</div>
+  </div>
+  <div class="badge">🗺️ 300 POIs · Summer 2025</div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-val">~750</div>
+        <div class="stat-label">km biked</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">14</div>
+        <div class="stat-label">days</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">4</div>
+        <div class="stat-label">train legs</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">Alps</div>
+        <div class="stat-label">destination</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('waypoints')">Waypoints</button>
+      <button class="tab" onclick="switchTab('itinerary')">Itinerary</button>
+      <button class="tab" onclick="switchTab('tips')">Tips</button>
+      <button class="tab" onclick="switchTab('pois')">300 POIs</button>
+    </div>
+
+    <div id="tab-waypoints" class="tab-content active">
+      <div class="waypoint-list" id="wp-list"></div>
+    </div>
+
+    <div id="tab-itinerary" class="tab-content">
+      <div id="day-list"></div>
+    </div>
+
+    <div id="tab-tips" class="tab-content">
+      <div class="info-box" style="margin-top:8px">
+        <p><strong>Train with bikes (Stockholm → Hamburg):</strong> Book SJ/DB international. Bikes need reservation, usually €10–30/leg. Book early — bike spaces sell out.</p>
+      </div>
+      <div class="info-box">
+        <p><strong>Hamburg → Munich:</strong> ICE trains allow bikes (booked separately). ~6h. Alternatively overnight train.</p>
+      </div>
+      <div class="info-box">
+        <p><strong>Munich → Alps biking:</strong> The R1 Bavarian cycle route follows the Isar valley south. Mostly flat to Mittenwald, then climbing begins.</p>
+      </div>
+      <div class="info-box">
+        <p><strong>Brenner Pass (1374m):</strong> Paved road, manageable gradient. Historic route into South Tyrol, Italy. Great descent to Bolzano.</p>
+      </div>
+      <div class="info-box">
+        <p><strong>Return by train:</strong> Innsbruck → Salzburg → Munich → Hamburg → Stockholm. ÖBB Nightjet (overnight) saves a hotel and time.</p>
+      </div>
+      <div class="info-box">
+        <p><strong>Gear:</strong> Full bikepacking bags (frame, handlebar, seat). No panniers for train travel. Budget ~€60–100/day incl. accommodation.</p>
+      </div>
+      <div class="info-box">
+        <p><strong>Best time:</strong> June–September. July/August ideal for high mountain passes. Book trains 2–3 months ahead.</p>
+      </div>
+
+    <div id="tab-pois">
+      <div class="poi-filters">
+        <input type="text" class="poi-search" id="poi-search" placeholder="Search places…" oninput="filterPois()">
+        <div class="poi-filter-row" id="terrain-filters">
+          <button class="filter-btn active" data-filter="all" onclick="setTerrainFilter(this)">All</button>
+          <button class="filter-btn" data-filter="summit" onclick="setTerrainFilter(this)">⛰️ Summit</button>
+          <button class="filter-btn" data-filter="city" onclick="setTerrainFilter(this)">🏙️ City</button>
+          <button class="filter-btn" data-filter="village" onclick="setTerrainFilter(this)">🏘️ Village</button>
+          <button class="filter-btn" data-filter="water" onclick="setTerrainFilter(this)">💧 Water</button>
+          <button class="filter-btn" data-filter="nature" onclick="setTerrainFilter(this)">🌲 Nature</button>
+          <button class="filter-btn" data-filter="viewpoint" onclick="setTerrainFilter(this)">👁️ View</button>
+          <button class="filter-btn" data-filter="gorge" onclick="setTerrainFilter(this)">🪨 Gorge</button>
+        </div>
+        <div class="poi-filter-row" style="margin-top:4px">
+          <button class="filter-btn special" id="btn-breathtaking" onclick="toggleSpecial('breathtaking')">✦ Breathtaking</button>
+          <button class="filter-btn special" id="btn-forum" onclick="toggleSpecial('forum')">★ Forum Pick</button>
+        </div>
+      </div>
+      <div class="poi-count" id="poi-count">300 places</div>
+      <div class="poi-list" id="poi-list"></div>
+    </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-title">Legend</div>
+      <div class="legend-items">
+        <div class="legend-item"><div class="legend-dot" style="background:#2a5580"></div> Train stop</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3a6b3a"></div> Bike day</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c9943a"></div> Rest / city</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c8440a"></div> Summit</div>
+        <div class="legend-line" style="background:#2a5580;margin-left:2px"></div> <span style="font-size:.68rem;color:var(--muted)">Train route</span>
+        <div class="legend-line" style="background:#3a6b3a;border-top:2px dashed #3a6b3a;background:none;border-bottom:none;margin-left:2px"></div> <span style="font-size:.68rem;color:var(--muted)">Bike route</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative;flex:1;display:flex;">
+    <div id="map"></div>
+    <div class="layer-toggle">
+      <label><input type="checkbox" id="chk-train" checked onchange="toggleLayer('train')"> Train legs</label>
+      <label><input type="checkbox" id="chk-bike" checked onchange="toggleLayer('bike')"> Bike route</label>
+      <label><input type="checkbox" id="chk-pois" checked onchange="toggleLayer('pois')"> 300 POIs</label>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const waypoints = [
+  {
+    id: 0, name: "Stockholm Central", country: "Sweden",
+    lat: 59.330, lng: 18.058,
+    type: "train", typeLabel: "Train",
+    day: "Day 1",
+    desc: "Depart early morning. SJ/DB international train via Malmö–Copenhagen–Hamburg. Book bike space in advance.",
+    dist: "Train: ~1200 km to Hamburg"
+  },
+  {
+    id: 1, name: "Hamburg Hbf", country: "Germany",
+    lat: 53.553, lng: 10.007,
+    type: "train", typeLabel: "Train",
+    day: "Day 1–2",
+    desc: "Arrive evening. Overnight in Hamburg or connect to night train toward Munich. Great city to explore by bike.",
+    dist: "Train: ~800 km to Munich"
+  },
+  {
+    id: 2, name: "Munich Hbf", country: "Germany",
+    lat: 48.140, lng: 11.558,
+    type: "rest", typeLabel: "City",
+    day: "Day 2",
+    desc: "Arrive Munich. Rest day, explore the city, final gear check. Sleep well — the riding starts tomorrow.",
+    dist: "Bike start point"
+  },
+  {
+    id: 3, name: "Wolfratshausen", country: "Germany",
+    lat: 47.913, lng: 11.424,
+    type: "bike", typeLabel: "Bike",
+    day: "Day 3",
+    desc: "First pedal strokes! Follow the Isar valley south on the R1 bike route. Flat to rolling, café stops en route.",
+    dist: "~45 km from Munich"
+  },
+  {
+    id: 4, name: "Bad Tölz", country: "Germany",
+    lat: 47.760, lng: 11.559,
+    type: "bike", typeLabel: "Bike",
+    day: "Day 3",
+    desc: "Beautiful spa town at the foot of the Alps. First mountain views. Great lunch stop or overnight.",
+    dist: "~30 km from Wolfratshausen"
+  },
+  {
+    id: 5, name: "Mittenwald", country: "Germany",
+    lat: 47.441, lng: 11.264,
+    type: "bike", typeLabel: "Bike",
+    day: "Day 4",
+    desc: "Climb into the mountains proper. Mittenwald is a fairy-tale Bavarian village with painted houses. Camp or gasthaus.",
+    dist: "~55 km from Bad Tölz"
+  },
+  {
+    id: 6, name: "Garmisch-Partenkirchen", country: "Germany",
+    lat: 47.492, lng: 11.095,
+    type: "bike", typeLabel: "Bike",
+    day: "Day 4–5",
+    desc: "Optional detour to Zugspitze (Germany's highest peak). Stunning Wank mountain loop on bike. World-class scenery.",
+    dist: "~20 km loop from Mittenwald"
+  },
+  {
+    id: 7, name: "Innsbruck", country: "Austria",
+    lat: 47.263, lng: 11.401,
+    type: "rest", typeLabel: "City",
+    day: "Day 5–6",
+    desc: "Capital of Tyrol. Cross the Austrian border. Rest day, explore the old town, Nordkette cable car, and fuel up.",
+    dist: "~50 km from Mittenwald"
+  },
+  {
+    id: 8, name: "Lake Achensee", country: "Austria",
+    lat: 47.462, lng: 11.709,
+    type: "bike", typeLabel: "Bike",
+    day: "Day 6",
+    desc: "Stunning alpine lake with turquoise water. A challenging climb rewards with incredible views. Wild swim optional.",
+    dist: "~35 km from Innsbruck"
+  },
+  {
+    id: 9, name: "Brenner Pass (1374m)", country: "Austria/Italy",
+    lat: 47.002, lng: 11.506,
+    type: "summit", typeLabel: "Summit",
+    day: "Day 7",
+    desc: "The highlight — cross from Austria into Italy! Historic Roman road, manageable grade, tremendous satisfaction at the top.",
+    dist: "~40 km from Innsbruck"
+  },
+  {
+    id: 10, name: "Sterzing / Vipiteno", country: "Italy",
+    lat: 46.897, lng: 11.434,
+    type: "bike", typeLabel: "Bike",
+    day: "Day 7",
+    desc: "First Italian town after the pass. Medieval towers, great pizza, and pasta after all that climbing. Celebrate!",
+    dist: "~15 km descent from Brenner"
+  },
+  {
+    id: 11, name: "Bolzano / Bozen", country: "Italy",
+    lat: 46.499, lng: 11.354,
+    type: "rest", typeLabel: "City",
+    day: "Day 8",
+    desc: "South Tyrol's capital — Italian food, German heritage, Ötzi the Iceman museum. Rest day before the turn home.",
+    dist: "~55 km from Sterzing"
+  },
+  {
+    id: 12, name: "Salzburg", country: "Austria",
+    lat: 47.813, lng: 13.045,
+    type: "train", typeLabel: "Train",
+    day: "Day 9–10",
+    desc: "Train back to Salzburg from Bolzano or Innsbruck. Mozart's birthplace, fortress, Salzach riverbank rides. Overnight stop.",
+    dist: "Train: ~2.5h from Innsbruck"
+  },
+  {
+    id: 13, name: "Munich → Hamburg → Stockholm", country: "Germany/Sweden",
+    lat: 51.5, lng: 10.0,
+    type: "train", typeLabel: "Train",
+    day: "Day 11–14",
+    desc: "Final train sprint home. Munich → Hamburg (ICE, ~6h) → Copenhagen → Stockholm. Nightjet option saves a night.",
+    dist: "Train: ~1800 km home"
+  },
+];
+
+const pois = [
+  { id:101, name:"Amsterdam", country:"🇳🇱 Netherlands", lat:52.3676, lng:4.9041, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Lowlands", terrain:"City", elevation:0, breathtaking:false, forumPick:false, routeOrder:1, gmaps:"https://www.google.com/maps?q=52.3676,4.9041", desc:"Classic departure point. World's best urban bike infrastructure. Exit south via the Amstel river for instant quiet." },
+  { id:102, name:"Hoge Veluwe National Park", country:"🇳🇱 Netherlands", lat:52.0886, lng:5.8564, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Forest / Nature", elevation:50, breathtaking:false, forumPick:true, routeOrder:2, gmaps:"https://www.google.com/maps?q=52.0886,5.8564", desc:"Free white bikes inside the park. Sandy heathland and pine groves — first real off-road taste of the trip." },
+  { id:103, name:"Maastricht & Geultal", country:"🇳🇱 Netherlands", lat:50.8514, lng:5.6909, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Village / Town", elevation:58, breathtaking:false, forumPick:false, routeOrder:3, gmaps:"https://www.google.com/maps?q=50.8514,5.6909", desc:"The Geul river valley south of Maastricht gives the Netherlands' only real hills. Medieval charm meets good gravel." },
+  { id:104, name:"Veluwe Ridge Trail", country:"🇳🇱 Netherlands", lat:52.2, lng:5.95, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:110, breathtaking:false, forumPick:true, routeOrder:4, gmaps:"https://www.google.com/maps?q=52.2,5.95", desc:"Sandy ice-age ridges through pine forest. The highest point in the Netherlands (110 m) feels like a mountain after Dutch flatness." },
+  { id:105, name:"Leiden & Bollenstreek Tulip Fields", country:"🇳🇱 Netherlands", lat:52.18, lng:4.5, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Village / Town", elevation:2, breathtaking:true, forumPick:true, routeOrder:5, gmaps:"https://www.google.com/maps?q=52.18,4.5", desc:"In April/May the flower-bulb fields between Leiden and Haarlem turn the landscape into solid blocks of colour — tulips, hyacinths, daffodils. One of Europe's most surreal flat cycling experiences." },
+  { id:106, name:"Utrecht", country:"🇳🇱 Netherlands", lat:52.0907, lng:5.1214, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:5, breathtaking:false, forumPick:true, routeOrder:6, gmaps:"https://www.google.com/maps?q=52.0907,5.1214", desc:"The most cycle-friendly city in the Netherlands. Canal-side wharf cellars, medieval Dom tower, world-famous bike parking garage (12,500 spaces). Excellent rest-day city." },
+  { id:107, name:"Kinderdijk Windmills", country:"🇳🇱 Netherlands", lat:51.8833, lng:4.6333, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Viewpoint", elevation:0, breathtaking:true, forumPick:true, routeOrder:7, gmaps:"https://www.google.com/maps?q=51.8833,4.6333", desc:"19 operating windmills on a UNESCO-listed polder. The sight of the full row reflected in still water at dawn is one of the Netherlands' signature images, completely accessible by bike." },
+  { id:108, name:"Zeeland Delta Coast", country:"🇳🇱 Netherlands", lat:51.5, lng:3.8333, type:"water", typeLabel:"Coast", emoji:"🌊", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Coast", elevation:2, breathtaking:true, forumPick:false, routeOrder:8, gmaps:"https://www.google.com/maps?q=51.5,3.8333", desc:"The storm-surge barrier (Oosterscheldekering) and the cycling paths across the delta islands give enormous open-sky views over the North Sea. Unique landscape of water, islands and cycling bridges." },
+  { id:109, name:"Giethoorn", country:"🇳🇱 Netherlands", lat:52.7333, lng:6.0833, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Village / Town", elevation:1, breathtaking:true, forumPick:true, routeOrder:9, gmaps:"https://www.google.com/maps?q=52.7333,6.0833", desc:"The 'Venice of the Netherlands' — a village with no roads, only canals and boat paths. The cycling track around the village through wetland meadows is beautiful and absolutely flat." },
+  { id:110, name:"Texel Island", country:"🇳🇱 Netherlands", lat:53.05, lng:4.8167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Forest / Nature", elevation:5, breathtaking:true, forumPick:false, routeOrder:10, gmaps:"https://www.google.com/maps?q=53.05,4.8167", desc:"The largest Wadden Sea island, reachable by ferry from Den Helder. Cycling paths through dunes, forests and sheep pastures with North Sea views on both sides." },
+  { id:111, name:"Haarlem", country:"🇳🇱 Netherlands", lat:52.3874, lng:4.6462, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:4, breathtaking:false, forumPick:false, routeOrder:11, gmaps:"https://www.google.com/maps?q=52.3874,4.6462", desc:"Elegant canal city with a spectacular Gothic cathedral. The Grote Markt square is one of the Netherlands' finest. Close to the tulip fields and Amsterdam." },
+  { id:112, name:"Groningen", country:"🇳🇱 Netherlands", lat:53.2194, lng:6.5665, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:5, breathtaking:false, forumPick:true, routeOrder:12, gmaps:"https://www.google.com/maps?q=53.2194,6.5665", desc:"The cycling capital of the Netherlands by modal share. Flat, relaxed student city with excellent food. Good northern terminus if riding the full country north-to-south." },
+  { id:113, name:"Afsluitdijk Crossing", country:"🇳🇱 Netherlands", lat:52.9333, lng:5.0, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Viewpoint", elevation:7, breathtaking:true, forumPick:true, routeOrder:13, gmaps:"https://www.google.com/maps?q=52.9333,5.0", desc:"The 32 km causeway across the IJsselmeer has a dedicated cycling path. Cycling across open water with the sea on both sides and enormous sky overhead is disorienting and magnificent." },
+  { id:114, name:"Valkenburg", country:"🇳🇱 Netherlands", lat:50.8667, lng:5.8333, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:150, breathtaking:false, forumPick:true, routeOrder:14, gmaps:"https://www.google.com/maps?q=50.8667,5.8333", desc:"The only town in the Netherlands with a proper medieval castle ruin on a limestone hill. The surrounding Geuldal provides real climbing — the Cauberg and Eyserbosweg are genuine hills." },
+  { id:115, name:"Biesbosch National Park", country:"🇳🇱 Netherlands", lat:51.75, lng:4.8167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:0, breathtaking:true, forumPick:false, routeOrder:15, gmaps:"https://www.google.com/maps?q=51.75,4.8167", desc:"A vast inland freshwater tidal delta of creeks, willows and reed beds. The cycling paths wind through an almost primeval wilderness minutes from Dordrecht. Silent, green and very beautiful." },
+  { id:116, name:"Bruges", country:"🇧🇪 Belgium", lat:51.2093, lng:3.2247, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Lowlands", terrain:"City", elevation:5, breathtaking:false, forumPick:false, routeOrder:16, gmaps:"https://www.google.com/maps?q=51.2093,3.2247", desc:"Medieval Flemish canal city. Cobblestones punish loaded bikes — use the outer ring roads. Essential cultural stop." },
+  { id:117, name:"Ghent", country:"🇧🇪 Belgium", lat:51.0543, lng:3.7174, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:10, breathtaking:false, forumPick:true, routeOrder:17, gmaps:"https://www.google.com/maps?q=51.0543,3.7174", desc:"More lived-in than Bruges, cheaper, and with a superb medieval core. The Graslei waterfront at dusk is one of Belgium's finest views." },
+  { id:118, name:"Remouchamps Gorge", country:"🇧🇪 Belgium", lat:50.4833, lng:5.7167, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Gorge / Canyon", elevation:250, breathtaking:true, forumPick:true, routeOrder:18, gmaps:"https://www.google.com/maps?q=50.4833,5.7167", desc:"Deep limestone canyon with a 10% grade. Featured in Liège-Bastogne-Liège classics. Belgium's single most dramatic road — river below, vertical walls above." },
+  { id:119, name:"Ardennes – La Roche-en-Ardenne", country:"🇧🇪 Belgium", lat:50.1839, lng:5.5772, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Forest / Nature", elevation:320, breathtaking:false, forumPick:false, routeOrder:19, gmaps:"https://www.google.com/maps?q=50.1839,5.5772", desc:"Belgium's forested highland. Rolling river valleys, gravel paths, cheap camping. The physical step-change from the lowlands." },
+  { id:120, name:"Signal de Botrange", country:"🇧🇪 Belgium", lat:50.5025, lng:6.1003, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:694, breathtaking:true, forumPick:true, routeOrder:20, gmaps:"https://www.google.com/maps?q=50.5025,6.1003", desc:"Belgium's highest point. A surprisingly isolated moorland plateau. Forum riders describe cycling through the High Fens as eerily beautiful — flat peat bog above the treeline." },
+  { id:121, name:"Dinant & Meuse Gorge", country:"🇧🇪 Belgium", lat:50.2611, lng:4.9122, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:120, breathtaking:true, forumPick:true, routeOrder:21, gmaps:"https://www.google.com/maps?q=50.2611,4.9122", desc:"Spectacular Meuse river gorge with the citadel fortress perched impossibly on a vertical cliff above the town. The cycling path along the river is one of the Meuse valley's highlights." },
+  { id:122, name:"Han-sur-Lesse Caves & Valley", country:"🇧🇪 Belgium", lat:50.1167, lng:5.1833, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:200, breathtaking:true, forumPick:true, routeOrder:22, gmaps:"https://www.google.com/maps?q=50.1167,5.1833", desc:"The Lesse river cuts a spectacular gorge through the Ardennes. The Han caves (navigable by boat inside the mountain) combined with the cycle path through the gorge make this one of Belgium's great routes." },
+  { id:123, name:"Liège", country:"🇧🇪 Belgium", lat:50.6292, lng:5.5797, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"City", elevation:65, breathtaking:false, forumPick:false, routeOrder:23, gmaps:"https://www.google.com/maps?q=50.6292,5.5797", desc:"Industrial Walloon city with a surprisingly good cycling path along the Meuse. Starting point of the Liège-Bastogne-Liège classics. Cheap, gritty, and authentic." },
+  { id:124, name:"Bastogne", country:"🇧🇪 Belgium", lat:50.0, lng:5.7167, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Village / Town", elevation:520, breathtaking:false, forumPick:true, routeOrder:24, gmaps:"https://www.google.com/maps?q=50.0,5.7167", desc:"WWII Battle of the Bulge memorial city, deep in the Ardennes. The roads south of Bastogne on quiet forest lanes are some of Belgium's best cycling — virtually no traffic." },
+  { id:125, name:"Ypres (Ieper)", country:"🇧🇪 Belgium", lat:50.8503, lng:2.8775, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:25, breathtaking:false, forumPick:true, routeOrder:25, gmaps:"https://www.google.com/maps?q=50.8503,2.8775", desc:"Reconstructed medieval Flemish city, completely destroyed in WWI. The In Flanders Fields museum is one of Europe's most moving war memorials. Cycling the surrounding Ypres Salient battlefields is a powerful experience." },
+  { id:126, name:"Leuven", country:"🇧🇪 Belgium", lat:50.8798, lng:4.7005, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:60, breathtaking:false, forumPick:false, routeOrder:26, gmaps:"https://www.google.com/maps?q=50.8798,4.7005", desc:"Belgium's university city. Outstanding Gothic town hall and St. Peter's Church. Excellent beer culture — home of AB InBev. Compact and very cycleable." },
+  { id:127, name:"Hoge Kempen National Park", country:"🇧🇪 Belgium", lat:50.9667, lng:5.7167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:100, breathtaking:false, forumPick:true, routeOrder:27, gmaps:"https://www.google.com/maps?q=50.9667,5.7167", desc:"Belgium's only national park — vast heath and pine forest on the Kempen plateau. The mountain bike trails and gravel paths here are Belgium's best off-road cycling." },
+  { id:128, name:"Meerdaal Forest", country:"🇧🇪 Belgium", lat:50.7167, lng:4.75, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:140, breathtaking:false, forumPick:false, routeOrder:28, gmaps:"https://www.google.com/maps?q=50.7167,4.75", desc:"Ancient oak and beech forest south of Leuven. Quiet gravel paths, carpeted with bluebells in spring. A peaceful green corridor away from city traffic." },
+  { id:129, name:"Namur Citadel", country:"🇧🇪 Belgium", lat:50.4667, lng:4.8667, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:180, breathtaking:true, forumPick:false, routeOrder:29, gmaps:"https://www.google.com/maps?q=50.4667,4.8667", desc:"The largest citadel in Europe, visible from far across the Meuse-Sambre confluence. The cycling descent from the fortress gives a panoramic view across two rivers and the city." },
+  { id:130, name:"Waterloo Battlefield", country:"🇧🇪 Belgium", lat:50.68, lng:4.4122, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Viewpoint", elevation:90, breathtaking:false, forumPick:true, routeOrder:30, gmaps:"https://www.google.com/maps?q=50.68,4.4122", desc:"The Lion's Mound artificial hill gives a panoramic view of the 1815 battlefield. The surrounding farmland roads are quiet and atmospheric. A powerful historical detour from Brussels." },
+  { id:131, name:"Zwin Nature Reserve", country:"🇧🇪 Belgium", lat:51.3667, lng:3.35, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:2, breathtaking:true, forumPick:false, routeOrder:31, gmaps:"https://www.google.com/maps?q=51.3667,3.35", desc:"A tidal marsh nature reserve on the Belgian-Dutch border. Cycling the dike paths above the salt marshes with the North Sea visible gives a vast, windswept, beautiful landscape." },
+  { id:132, name:"Mechelen", country:"🇧🇪 Belgium", lat:51.0281, lng:4.4797, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:10, breathtaking:false, forumPick:false, routeOrder:32, gmaps:"https://www.google.com/maps?q=51.0281,4.4797", desc:"Often overlooked between Brussels and Antwerp. Superb cathedral, excellent beer scene, and one of Belgium's most compact and cycleable city centres." },
+  { id:133, name:"Antwerp", country:"🇧🇪 Belgium", lat:51.2194, lng:4.4025, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Lowlands", terrain:"City", elevation:14, breathtaking:false, forumPick:true, routeOrder:33, gmaps:"https://www.google.com/maps?q=51.2194,4.4025", desc:"Belgium's second city and diamond capital. The cycling path along the Scheldt waterfront is excellent. The Cathedral of Our Lady houses four Rubens masterpieces." },
+  { id:134, name:"Hautes Fagnes – Baraque Michel", country:"🇧🇪 Belgium", lat:50.4833, lng:6.05, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Forest / Nature", elevation:674, breathtaking:true, forumPick:true, routeOrder:34, gmaps:"https://www.google.com/maps?q=50.4833,6.05", desc:"The highest and most remote peat bog plateau in Belgium. Cycling the gravel paths across this vast, misty moorland is otherworldly — feels like Iceland, costs almost nothing." },
+  { id:135, name:"Walcourt & Entre-Sambre-et-Meuse", country:"🇧🇪 Belgium", lat:50.25, lng:4.4333, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Village / Town", elevation:280, breathtaking:false, forumPick:true, routeOrder:35, gmaps:"https://www.google.com/maps?q=50.25,4.4333", desc:"The rolling farmland and forest between the Sambre and Meuse rivers is Belgium's least-known cycling region — quiet roads, hilltop villages, and almost no tourists." },
+  { id:136, name:"Cologne Rhine Start", country:"🇩🇪 Germany", lat:50.9333, lng:6.95, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"River", terrain:"City", elevation:48, breathtaking:false, forumPick:false, routeOrder:36, gmaps:"https://www.google.com/maps?q=50.9333,6.95", desc:"Rhine riverbank cycling begins. EuroVelo 15 well-signed. The cathedral silhouette seen across the river is iconic." },
+  { id:137, name:"Loreley Rock & Rhine Gorge", country:"🇩🇪 Germany", lat:50.1333, lng:7.7167, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Medium €€", region:"River", terrain:"Viewpoint", elevation:130, breathtaking:true, forumPick:true, routeOrder:37, gmaps:"https://www.google.com/maps?q=50.1333,7.7167", desc:"UNESCO World Heritage stretch. Sheer 130 m slate cliffs, medieval castles on every bend. Sunset from the Loreley viewpoint is legendary among Rhine cyclists." },
+  { id:138, name:"Drachenfels & Siebengebirge", country:"🇩🇪 Germany", lat:50.6667, lng:7.2, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:321, breathtaking:true, forumPick:true, routeOrder:38, gmaps:"https://www.google.com/maps?q=50.6667,7.2", desc:"Fairy-tale ruined castle above the Rhine. The climb from Königswinter gives 180° panorama across the river. A Singletrack World forum favourite for its mythical atmosphere." },
+  { id:139, name:"Eifel Maar Lakes", country:"🇩🇪 Germany", lat:50.15, lng:6.7833, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Lake / Water", elevation:540, breathtaking:true, forumPick:true, routeOrder:39, gmaps:"https://www.google.com/maps?q=50.15,6.7833", desc:"Extinct volcanic craters filled with blue-green water. Schalkenmehrener and Weinfelder Maar side by side. Consistently flagged as an unexpected showstopper." },
+  { id:140, name:"Moseltal (Moselle Valley)", country:"🇩🇪 Germany", lat:50.35, lng:7.6, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"River", terrain:"Village / Town", elevation:80, breathtaking:true, forumPick:true, routeOrder:40, gmaps:"https://www.google.com/maps?q=50.35,7.6", desc:"Vineyard-draped river valley, half-timbered wine villages every few kilometres. Cochem castle above the river bend is a jaw-drop. One of Germany's finest cycling routes." },
+  { id:141, name:"Nürburgring Valley", country:"🇩🇪 Germany", lat:50.3356, lng:6.9475, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Forest / Nature", elevation:600, breathtaking:false, forumPick:true, routeOrder:41, gmaps:"https://www.google.com/maps?q=50.3356,6.9475", desc:"The famous race circuit sits in gorgeous forested Eifel hills. The valley roads around it are quiet, well-surfaced, and beautifully remote." },
+  { id:142, name:"Wutachschlucht Gorge", country:"🇩🇪 Germany", lat:47.8, lng:8.3, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:560, breathtaking:true, forumPick:true, routeOrder:42, gmaps:"https://www.google.com/maps?q=47.8,8.3", desc:"The 'wild gorge of Germany' — a narrow slot canyon barely wide enough for a bike, cut by a wild river. Partly hike-a-bike, entirely worth it. Germany's best-kept secret." },
+  { id:143, name:"Schwarzwald – Feldberg", country:"🇩🇪 Germany", lat:47.8737, lng:8.0053, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Mountains", terrain:"Pass / Summit", elevation:1493, breathtaking:true, forumPick:true, routeOrder:43, gmaps:"https://www.google.com/maps?q=47.8737,8.0053", desc:"Germany's highest non-Alpine peak. Dense fir forests give way to open moorland. Riders call the Schwarzwald 'one of the most atmospheric forests in Europe.'" },
+  { id:144, name:"Titisee & Schluchsee", country:"🇩🇪 Germany", lat:47.8833, lng:8.15, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Lake / Water", elevation:850, breathtaking:true, forumPick:false, routeOrder:44, gmaps:"https://www.google.com/maps?q=47.8833,8.15", desc:"Twin glacial lakes deep in the Black Forest. The surrounding forest roads are perfect gravel — dark, hushed, and strikingly beautiful." },
+  { id:145, name:"Neuschwanstein Castle Approach", country:"🇩🇪 Germany", lat:47.5576, lng:10.7498, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Viewpoint", elevation:800, breathtaking:true, forumPick:true, routeOrder:45, gmaps:"https://www.google.com/maps?q=47.5576,10.7498", desc:"The original fairy-tale castle from the Marienbrücke bridge. Arriving via the quiet valley road from Füssen at dawn, you have it nearly to yourself." },
+  { id:146, name:"Bavarian Alps – Zugspitze Circuit", country:"🇩🇪 Germany", lat:47.4211, lng:10.9853, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Mountains", terrain:"Pass / Summit", elevation:1800, breathtaking:true, forumPick:true, routeOrder:46, gmaps:"https://www.google.com/maps?q=47.4211,10.9853", desc:"Round trip through countless lakes, old passes, and alpine pastures. Views of Germany's highest peak (2962 m) are relentless." },
+  { id:147, name:"Garmisch & Werdenfels Valley", country:"🇩🇪 Germany", lat:47.4986, lng:11.0956, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Village / Town", elevation:720, breathtaking:true, forumPick:false, routeOrder:47, gmaps:"https://www.google.com/maps?q=47.4986,11.0956", desc:"Traditional Bavarian alpine village backed by the Zugspitze massif. Painted facades, onion-dome church, Loisach river cycling path." },
+  { id:148, name:"Berchtesgaden – Königssee", country:"🇩🇪 Germany", lat:47.6303, lng:12.984, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Hard", cost:"Medium €€", region:"Mountains", terrain:"Lake / Water", elevation:600, breathtaking:true, forumPick:true, routeOrder:48, gmaps:"https://www.google.com/maps?q=47.6303,12.984", desc:"One of Germany's most pristine alpine lakes, surrounded by 2700 m walls. Routinely listed as Germany's most beautiful natural spot." },
+  { id:149, name:"Schloss Hohenzollern", country:"🇩🇪 Germany", lat:48.3231, lng:9.0469, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:855, breathtaking:true, forumPick:false, routeOrder:49, gmaps:"https://www.google.com/maps?q=48.3231,9.0469", desc:"A neo-Gothic castle perched on an isolated conical hill in the Swabian Alb. The castle appears suddenly above the treeline — riders describe it as a 'movie backdrop moment.'" },
+  { id:150, name:"Romantic Road – Rothenburg ob der Tauber", country:"🇩🇪 Germany", lat:49.3754, lng:10.1797, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Village / Town", elevation:425, breathtaking:false, forumPick:true, routeOrder:50, gmaps:"https://www.google.com/maps?q=49.3754,10.1797", desc:"Germany's best-preserved medieval walled town. The town walls at dusk are genuinely magical. Bikepacking.com's most cited German village stop." },
+  { id:151, name:"Bodensee (Lake Constance)", country:"🇩🇪 Germany", lat:47.65, lng:9.4667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Lake / Water", elevation:395, breathtaking:true, forumPick:true, routeOrder:51, gmaps:"https://www.google.com/maps?q=47.65,9.4667", desc:"The cycle circuit around one of Central Europe's largest lakes passes through Germany, Austria, and Switzerland in a single loop. Apple orchards meet Alpine backdrop." },
+  { id:152, name:"Watzmann East Face Viewpoint", country:"🇩🇪 Germany", lat:47.5667, lng:12.9167, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Viewpoint", elevation:1700, breathtaking:true, forumPick:false, routeOrder:52, gmaps:"https://www.google.com/maps?q=47.5667,12.9167", desc:"The largest rock face in the eastern Alps (1800 m vertical). The cycling road from Berchtesgaden into the Wimbachtal gives a direct, terrifying, beautiful view of the whole face." },
+  { id:153, name:"Bastei Bridge – Elbe Sandstone", country:"🇩🇪 Germany", lat:50.9667, lng:14.0667, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:305, breathtaking:true, forumPick:true, routeOrder:53, gmaps:"https://www.google.com/maps?q=50.9667,14.0667", desc:"A dramatic sandstone bridge over a 200 m vertical drop, with the Elbe snaking below. One of the most photographed landscapes in Central Europe, completely accessible by bike." },
+  { id:154, name:"Heidelberg Castle & Neckar Valley", country:"🇩🇪 Germany", lat:49.3988, lng:8.6724, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Viewpoint", elevation:300, breathtaking:true, forumPick:true, routeOrder:54, gmaps:"https://www.google.com/maps?q=49.3988,8.6724", desc:"Germany's most romantic castle ruin above the Neckar river. The cycling path through the Neckar valley from Heidelberg south is genuinely beautiful — quiet, wooded, and lined with castle ruins." },
+  { id:155, name:"Tübingen Stiftskirche & Neckar", country:"🇩🇪 Germany", lat:48.52, lng:9.0556, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"City", elevation:340, breathtaking:false, forumPick:false, routeOrder:55, gmaps:"https://www.google.com/maps?q=48.52,9.0556", desc:"Germany's most beautiful university city — colourful half-timbered houses on a river bend, punted boats below. Excellent cycling infrastructure and very cheap." },
+  { id:156, name:"Schwäbische Alb – Beuroner Tal", country:"🇩🇪 Germany", lat:48.05, lng:8.9667, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:650, breathtaking:true, forumPick:true, routeOrder:56, gmaps:"https://www.google.com/maps?q=48.05,8.9667", desc:"The Danube cuts a spectacular gorge through the limestone Swabian Alb between Tuttlingen and Sigmaringen. Monastery on a cliff, wild cycling through a deep white-walled canyon." },
+  { id:157, name:"Freiburg im Breisgau", country:"🇩🇪 Germany", lat:47.999, lng:7.8421, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"City", elevation:278, breathtaking:false, forumPick:false, routeOrder:57, gmaps:"https://www.google.com/maps?q=47.999,7.8421", desc:"Germany's sunniest city, gateway between Black Forest and Rhine. Renowned cycling culture and excellent re-supply before the Swiss border." },
+  { id:158, name:"Hamburg – Alster Lakes", country:"🇩🇪 Germany", lat:53.5753, lng:10.0153, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Lowlands", terrain:"City", elevation:6, breathtaking:false, forumPick:true, routeOrder:58, gmaps:"https://www.google.com/maps?q=53.5753,10.0153", desc:"Bikepacking.com's 'Hamburg to Heath and Hills' route starts here. The Alster lakes cycling circuit within the city is surprisingly scenic. Good northern gateway." },
+  { id:159, name:"Lüneburg Heath", country:"🇩🇪 Germany", lat:53.0, lng:10.0, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:60, breathtaking:true, forumPick:true, routeOrder:59, gmaps:"https://www.google.com/maps?q=53.0,10.0", desc:"Vast heather moorland turning deep purple in August. The gravel paths across the heath are flat, peaceful, and strangely beautiful. The largest heath landscape in Central Europe." },
+  { id:160, name:"Harz Mountains – Brocken", country:"🇩🇪 Germany", lat:51.8, lng:10.6167, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1141, breathtaking:true, forumPick:true, routeOrder:60, gmaps:"https://www.google.com/maps?q=51.8,10.6167", desc:"The Brocken — Germany's highest northern peak — is reachable by gravel and forest road. The narrow-gauge steam railway shares the summit track. Frequently wreathed in cloud. Iron Curtain Gravel Trail passes through." },
+  { id:161, name:"Rhön Biosphere Reserve", country:"🇩🇪 Germany", lat:50.45, lng:9.9667, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:950, breathtaking:false, forumPick:true, routeOrder:61, gmaps:"https://www.google.com/maps?q=50.45,9.9667", desc:"The 'Land of Open Vistas' — a highland plateau of volcanic cones with vast open views. Excellent gravel, minimal traffic, genuine wilderness feel. Very cheap." },
+  { id:162, name:"Regensburg & Danube", country:"🇩🇪 Germany", lat:49.0134, lng:12.1016, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"River", terrain:"City", elevation:338, breathtaking:false, forumPick:true, routeOrder:62, gmaps:"https://www.google.com/maps?q=49.0134,12.1016", desc:"Medieval trading city on the Danube. The EuroVelo 6 Danube path is excellent here. The stone bridge (Germany's oldest) and cathedral are architectural highlights." },
+  { id:163, name:"Bamberg", country:"🇩🇪 Germany", lat:49.8988, lng:10.9028, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"City", elevation:262, breathtaking:false, forumPick:true, routeOrder:63, gmaps:"https://www.google.com/maps?q=49.8988,10.9028", desc:"UNESCO-listed city of seven hills, baroque palaces, and more breweries per capita than anywhere in Germany. The smoke-beer (Rauchbier) here is unique in the world." },
+  { id:164, name:"Zugspitze Eibsee Lake", country:"🇩🇪 Germany", lat:47.4556, lng:10.9725, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:973, breathtaking:true, forumPick:true, routeOrder:64, gmaps:"https://www.google.com/maps?q=47.4556,10.9725", desc:"An emerald lake at the foot of Germany's highest mountain. The cycling path around the lake with the Zugspitze rising directly above is one of Bavaria's most dramatic viewpoints." },
+  { id:165, name:"Chiemgau – Chiemsee", country:"🇩🇪 Germany", lat:47.8667, lng:12.4667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:518, breathtaking:true, forumPick:true, routeOrder:65, gmaps:"https://www.google.com/maps?q=47.8667,12.4667", desc:"Bavaria's largest lake with the Alps as a backdrop. King Ludwig II's island palace (Herrenchiemsee) sits in the middle. The cycling circuit combines lake, mountains, and baroque architecture." },
+  { id:166, name:"Allgäu Alps – Oberstdorf", country:"🇩🇪 Germany", lat:47.4167, lng:10.2833, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:813, breathtaking:true, forumPick:true, routeOrder:66, gmaps:"https://www.google.com/maps?q=47.4167,10.2833", desc:"Germany's southernmost town, completely surrounded by Alps. The cycling roads into the surrounding valleys — Stillachtal, Trettachtal, Birgsautal — are exceptional. Bikepacker forum favourite for German alpine riding." },
+  { id:167, name:"Mittenwald", country:"🇩🇪 Germany", lat:47.4422, lng:11.2631, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Village / Town", elevation:920, breathtaking:true, forumPick:false, routeOrder:67, gmaps:"https://www.google.com/maps?q=47.4422,11.2631", desc:"An immaculately painted Bavarian alpine village below the Karwendel massif. The cycle route to Krün and Walchensee passes through some of the finest Bavarian Alpine scenery." },
+  { id:168, name:"Walchensee", country:"🇩🇪 Germany", lat:47.5833, lng:11.3333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:802, breathtaking:true, forumPick:true, routeOrder:68, gmaps:"https://www.google.com/maps?q=47.5833,11.3333", desc:"Germany's deepest alpine lake, vivid turquoise, surrounded by mountains. The descent from the Kesselberg pass to the lake shore is one of the most dramatic road reveals in Bavaria." },
+  { id:169, name:"Partnachklamm Gorge", country:"🇩🇪 Germany", lat:47.4667, lng:11.1, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Gorge / Canyon", elevation:730, breathtaking:true, forumPick:true, routeOrder:69, gmaps:"https://www.google.com/maps?q=47.4667,11.1", desc:"A narrow, torchlit gorge carved by the Partnach river — waterfalls, ice caves, thundering water. The cycling approach from Garmisch is flat; the gorge itself is hike-a-bike for 500 m but utterly spectacular." },
+  { id:170, name:"Iron Curtain Gravel Trail – Harz Section", country:"🇩🇪 Germany", lat:51.6667, lng:10.5, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:600, breathtaking:false, forumPick:true, routeOrder:70, gmaps:"https://www.google.com/maps?q=51.6667,10.5", desc:"Bikepacking Germany's 700 km trail along the former Iron Curtain. The Harz section passes remarkable forest landscapes, historical spots, and the European Green Belt." },
+  { id:171, name:"Spreewald Biosphere", country:"🇩🇪 Germany", lat:51.8833, lng:14.0, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:60, breathtaking:true, forumPick:false, routeOrder:71, gmaps:"https://www.google.com/maps?q=51.8833,14.0", desc:"A labyrinth of canals, meadows and alder forests in Brandenburg. Cycling the canal paths between Lübben and Lübbenau is completely flat and deeply atmospheric." },
+  { id:172, name:"Sächsische Schweiz – Schrammsteine", country:"🇩🇪 Germany", lat:50.9167, lng:14.2333, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:400, breathtaking:true, forumPick:true, routeOrder:72, gmaps:"https://www.google.com/maps?q=50.9167,14.2333", desc:"The Schrammsteine ridge of sandstone pinnacles above the Elbe is one of eastern Germany's most dramatic cycling viewpoints. The valley road below and the upper forest tracks are both excellent." },
+  { id:173, name:"Bavarian Forest – Großer Arber", country:"🇩🇪 Germany", lat:49.1167, lng:13.1333, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1456, breathtaking:true, forumPick:true, routeOrder:73, gmaps:"https://www.google.com/maps?q=49.1167,13.1333", desc:"Bavaria's highest forest peak. The gravel tracks through the national park — ancient trees, wildlife, misty valleys — are some of Germany's finest. Bikepacking Germany highlights this area." },
+  { id:174, name:"Augsburg", country:"🇩🇪 Germany", lat:48.3717, lng:10.8983, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:494, breathtaking:false, forumPick:false, routeOrder:74, gmaps:"https://www.google.com/maps?q=48.3717,10.8983", desc:"Germany's oldest city with Roman foundations. The Lech river cycling path is excellent. The Fuggerei (world's oldest social housing estate, 1516) is free to enter." },
+  { id:175, name:"Passau – Three Rivers City", country:"🇩🇪 Germany", lat:48.5667, lng:13.4667, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"River", terrain:"City", elevation:290, breathtaking:true, forumPick:true, routeOrder:75, gmaps:"https://www.google.com/maps?q=48.5667,13.4667", desc:"Where the Danube, Inn, and Ilz rivers meet beneath a baroque hilltop fortress. The confluence viewed from the castle is stunning. Gateway to the Danube cycling path into Austria." },
+  { id:176, name:"Altmühltal Nature Park", country:"🇩🇪 Germany", lat:48.9, lng:11.1, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:380, breathtaking:true, forumPick:true, routeOrder:76, gmaps:"https://www.google.com/maps?q=48.9,11.1", desc:"The Altmühl river cuts a peaceful limestone gorge with ruined castles and rock formations. The cycle path through the valley is one of Germany's most popular and most beautiful." },
+  { id:177, name:"Kelheim – Weltenburg Gorge", country:"🇩🇪 Germany", lat:48.9333, lng:11.8833, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:370, breathtaking:true, forumPick:true, routeOrder:77, gmaps:"https://www.google.com/maps?q=48.9333,11.8833", desc:"The Danube cuts its narrowest and most dramatic gorge between Kelheim and Weltenburg monastery. The monastery itself, on a rock in the river, is one of Germany's oldest breweries." },
+  { id:178, name:"Munich", country:"🇩🇪 Germany", lat:48.1351, lng:11.582, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Lowlands", terrain:"City", elevation:519, breathtaking:false, forumPick:true, routeOrder:78, gmaps:"https://www.google.com/maps?q=48.1351,11.582", desc:"Bavaria's capital — excellent cycling infrastructure, the English Garden (bigger than Central Park), beer halls, and a natural river surfing wave in the city. The München-Venezia route starts here." },
+  { id:179, name:"Zugspitze – Ehrwald Approach", country:"🇩🇪 Germany", lat:47.4167, lng:10.9333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1000, breathtaking:true, forumPick:true, routeOrder:79, gmaps:"https://www.google.com/maps?q=47.4167,10.9333", desc:"The Austrian-German border approach to the Zugspitze via Ehrwald gives extraordinary high-alpine cycling on the Austrian side leading to Germany's highest massif." },
+  { id:180, name:"Bavarian Baroque Road – Steingaden", country:"🇩🇪 Germany", lat:47.7, lng:10.85, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Village / Town", elevation:800, breathtaking:false, forumPick:true, routeOrder:80, gmaps:"https://www.google.com/maps?q=47.7,10.85", desc:"The Wieskirche (UNESCO) in an alpine meadow is one of the world's most beautiful rococo interiors. The cycling road through the Pfaffenwinkel foothills past it is gentle and classically Bavarian." },
+  { id:181, name:"Krakow", country:"🇵🇱 Poland", lat:50.0647, lng:19.945, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:220, breathtaking:false, forumPick:false, routeOrder:81, gmaps:"https://www.google.com/maps?q=50.0647,19.945", desc:"Royal city, rich history, cheap everything. The Vistula riverside trail leads south towards mountains." },
+  { id:182, name:"Dunajec River Gorge", country:"🇵🇱 Poland", lat:49.4167, lng:20.4333, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Easy", cost:"Low €", region:"Mountains", terrain:"Gorge / Canyon", elevation:450, breathtaking:true, forumPick:true, routeOrder:82, gmaps:"https://www.google.com/maps?q=49.4167,20.4333", desc:"A narrow limestone canyon where the Dunajec cuts between 300 m vertical white cliffs. Extreme drama for almost zero physical effort. Bikepacking.com's top Poland pick." },
+  { id:183, name:"Tatra Mountains – Zakopane", country:"🇵🇱 Poland", lat:49.2992, lng:19.9496, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:2499, breathtaking:true, forumPick:true, routeOrder:83, gmaps:"https://www.google.com/maps?q=49.2992,19.9496", desc:"Granite spires over Poland. Valley tracks into Dolina Chochołowska and Dolina Kościeliska are some of Central Europe's best off-road. Cheapest extreme alpine terrain on the route." },
+  { id:184, name:"Pieniny Mountains", country:"🇵🇱 Poland", lat:49.4, lng:20.4, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:982, breathtaking:true, forumPick:true, routeOrder:84, gmaps:"https://www.google.com/maps?q=49.4,20.4", desc:"Jagged limestone peaks above the Dunajec river. The Sokolica summit view across the gorge and Tatra backdrop is one of Poland's great panoramas." },
+  { id:185, name:"Klodzko Valley Loop", country:"🇵🇱 Poland", lat:50.4333, lng:16.65, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:900, breathtaking:false, forumPick:true, routeOrder:85, gmaps:"https://www.google.com/maps?q=50.4333,16.65", desc:"Bikepacking.com's Kotlina400 loop. Gravel paths hugging the valley rim, historic fortresses, remote forest roads. The Owl Mountains section is wild and beautiful." },
+  { id:186, name:"Śnieżka – Karkonosze Mountains", country:"🇵🇱 Poland", lat:50.7364, lng:15.7397, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1603, breathtaking:true, forumPick:true, routeOrder:86, gmaps:"https://www.google.com/maps?q=50.7364,15.7397", desc:"Highest peak of the Sudeten range. The plateau road gives a vast, rolling tundra landscape — completely unexpected in this part of Europe." },
+  { id:187, name:"Bieszczady Mountains", country:"🇵🇱 Poland", lat:49.1167, lng:22.5667, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1346, breathtaking:true, forumPick:true, routeOrder:87, gmaps:"https://www.google.com/maps?q=49.1167,22.5667", desc:"Poland's wild southeast corner. Primeval beech forests, wolf territories, almost no tourists. Poland's most authentically remote riding." },
+  { id:188, name:"Mazurian Lakes", country:"🇵🇱 Poland", lat:53.8333, lng:21.5667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Lake / Water", elevation:116, breathtaking:true, forumPick:true, routeOrder:88, gmaps:"https://www.google.com/maps?q=53.8333,21.5667", desc:"Bikepacking.com's 'Lakes, Forests, Borderlands' route covers this region: thousands of glacial lakes linked by forest gravel roads. The cycling is flat, peaceful, and endlessly scenic." },
+  { id:189, name:"Białowieża Forest", country:"🇵🇱 Poland", lat:52.7, lng:23.8667, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:175, breathtaking:true, forumPick:true, routeOrder:89, gmaps:"https://www.google.com/maps?q=52.7,23.8667", desc:"Europe's last primeval lowland forest — UNESCO World Heritage. Home to European bison. The gravel tracks through ancient oak and hornbeam are silent, vast, and completely unique." },
+  { id:190, name:"Ojców National Park", country:"🇵🇱 Poland", lat:50.2167, lng:19.8167, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:370, breathtaking:true, forumPick:true, routeOrder:90, gmaps:"https://www.google.com/maps?q=50.2167,19.8167", desc:"A limestone gorge with rock spires, caves, and a castle on a crag. The narrowest national park in Poland, easily accessed by bike from Krakow. The Prądnik valley cycling path is lovely." },
+  { id:191, name:"Wieliczka Salt Mine", country:"🇵🇱 Poland", lat:49.9833, lng:20.05, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Village / Town", elevation:237, breathtaking:false, forumPick:true, routeOrder:91, gmaps:"https://www.google.com/maps?q=49.9833,20.05", desc:"A UNESCO-listed salt mine with underground chapels, lakes and sculptures entirely carved from salt crystal. The cycling approach from Krakow is simple. One of Europe's most bizarre and beautiful underground spaces." },
+  { id:192, name:"Wroclaw", country:"🇵🇱 Poland", lat:51.1079, lng:17.0385, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:116, breathtaking:false, forumPick:true, routeOrder:92, gmaps:"https://www.google.com/maps?q=51.1079,17.0385", desc:"Poland's most beautiful city centre — a market square ringed by baroque houses on an island in the Oder river. Excellent cycling infrastructure and one of Poland's most vibrant food scenes." },
+  { id:193, name:"Gdansk", country:"🇵🇱 Poland", lat:54.352, lng:18.6466, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:12, breathtaking:false, forumPick:true, routeOrder:93, gmaps:"https://www.google.com/maps?q=54.352,18.6466", desc:"Hanseatic city on the Baltic. The cycling path along the Martwa Wisła to the sea is excellent. The amber market and the WWII Westerplatte peninsula are worth visiting." },
+  { id:194, name:"Książ Castle", country:"🇵🇱 Poland", lat:50.85, lng:16.2833, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:450, breathtaking:true, forumPick:false, routeOrder:94, gmaps:"https://www.google.com/maps?q=50.85,16.2833", desc:"Poland's third-largest castle, a baroque and neo-Gothic palace on a sandstone promontory above a forested gorge. The approach via the Pelcznica gorge cycling path is beautiful." },
+  { id:195, name:"Beskid Sądecki", country:"🇵🇱 Poland", lat:49.45, lng:20.75, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1262, breathtaking:false, forumPick:true, routeOrder:95, gmaps:"https://www.google.com/maps?q=49.45,20.75", desc:"Rugged Carpathian ridgeline between Poland and Slovakia. Quiet gravel roads, wooden churches (tserkvas), minimal traffic. The Poprad valley cycling path is excellent." },
+  { id:196, name:"Morskie Oko Lake", country:"🇵🇱 Poland", lat:49.2, lng:20.0667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Lake / Water", elevation:1395, breathtaking:true, forumPick:true, routeOrder:96, gmaps:"https://www.google.com/maps?q=49.2,20.0667", desc:"The most beautiful alpine lake in the Tatras — a turquoise jewel encircled by granite peaks. The cycling road ends at Palenica Białczańska; the remaining 9 km are on a car-free asphalt track perfect for bikes." },
+  { id:197, name:"Sudeten – Table Mountains (Góry Stołowe)", country:"🇵🇱 Poland", lat:50.4833, lng:16.3667, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Viewpoint", elevation:919, breathtaking:true, forumPick:true, routeOrder:97, gmaps:"https://www.google.com/maps?q=50.4833,16.3667", desc:"A unique flat-top sandstone plateau with erosion mazes (Błędne Skały) — narrow corridors between huge rounded boulders. The cycling approach and the plateau gravel are both excellent." },
+  { id:198, name:"Zamość", country:"🇵🇱 Poland", lat:50.723, lng:23.252, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:213, breathtaking:false, forumPick:false, routeOrder:98, gmaps:"https://www.google.com/maps?q=50.723,23.252", desc:"A perfectly preserved Renaissance planned city — the 'Pearl of the Renaissance' — with a complete arcaded market square. UNESCO-listed and completely flat cycling in every direction." },
+  { id:199, name:"Lubelska Upland – Roztocze", country:"🇵🇱 Poland", lat:50.5667, lng:23.2167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Forest / Nature", elevation:400, breathtaking:false, forumPick:true, routeOrder:99, gmaps:"https://www.google.com/maps?q=50.5667,23.2167", desc:"The forested limestone hills of Roztocze are almost unknown outside Poland. The gravel cycling paths through the area are quiet, beautiful, and completely budget." },
+  { id:200, name:"Torun", country:"🇵🇱 Poland", lat:53.0138, lng:18.5981, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:65, breathtaking:false, forumPick:false, routeOrder:100, gmaps:"https://www.google.com/maps?q=53.0138,18.5981", desc:"Copernicus' birthplace — a stunning Gothic brick city on the Vistula. The cycling path along the river is excellent. One of Poland's most beautiful cities and completely affordable." },
+  { id:201, name:"Prague", country:"🇨🇿 Czechia", lat:50.0755, lng:14.4378, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:200, breathtaking:false, forumPick:false, routeOrder:101, gmaps:"https://www.google.com/maps?q=50.0755,14.4378", desc:"Stunning historic capital. Vltava river trail is bikepacking-friendly. Good rest day — affordable food, spectacular architecture." },
+  { id:202, name:"Bohemian Switzerland – Pravčická Brána", country:"🇨🇿 Czechia", lat:50.8833, lng:14.25, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:619, breathtaking:true, forumPick:true, routeOrder:102, gmaps:"https://www.google.com/maps?q=50.8833,14.25", desc:"Europe's largest natural sandstone arch in a forest of towers and gorges. Riders describe this as a moment that stops you completely. Rideable to within 1 km." },
+  { id:203, name:"Adršpach Rock Town", country:"🇨🇿 Czechia", lat:50.6167, lng:16.1, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:550, breathtaking:true, forumPick:true, routeOrder:103, gmaps:"https://www.google.com/maps?q=50.6167,16.1", desc:"A labyrinth of 70 m sandstone spires rising from a forest. Widely cited as the Czech Republic's strangest and most beautiful natural wonder. Perfect gravel approach." },
+  { id:204, name:"Moravian Karst – Macocha Abyss", country:"🇨🇿 Czechia", lat:49.3667, lng:16.7333, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:380, breathtaking:true, forumPick:true, routeOrder:104, gmaps:"https://www.google.com/maps?q=49.3667,16.7333", desc:"A 138 m deep limestone sinkhole viewable from a bridge over the void. The cycle path through the karst valley leading to it is exceptional." },
+  { id:205, name:"Šumava – Luzný Ridge", country:"🇨🇿 Czechia", lat:49.0, lng:13.5, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1378, breathtaking:false, forumPick:true, routeOrder:105, gmaps:"https://www.google.com/maps?q=49.0,13.5", desc:"Dense primeval forest on the Czech–German–Austrian border. Riders describe 360° views across three countries from the ridge lines." },
+  { id:206, name:"Český Krumlov", country:"🇨🇿 Czechia", lat:48.8127, lng:14.3175, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:495, breathtaking:true, forumPick:true, routeOrder:106, gmaps:"https://www.google.com/maps?q=48.8127,14.3175", desc:"A UNESCO-listed baroque castle on a horseshoe meander of the Vltava river. The approach cycling road through the Šumava foothills is beautiful. One of Central Europe's most photogenic small towns." },
+  { id:207, name:"Bohemian Forest – Šumava Lakes", country:"🇨🇿 Czechia", lat:49.05, lng:13.45, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Lake / Water", elevation:1008, breathtaking:true, forumPick:false, routeOrder:107, gmaps:"https://www.google.com/maps?q=49.05,13.45", desc:"Ancient peat lakes on the Czech–German border (Černé jezero, Čertovo jezero). Dark forest, black water, completely silent. A uniquely atmospheric stop." },
+  { id:208, name:"Olomouc", country:"🇨🇿 Czechia", lat:49.5938, lng:17.2509, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:220, breathtaking:false, forumPick:true, routeOrder:108, gmaps:"https://www.google.com/maps?q=49.5938,17.2509", desc:"Often called the 'hidden Prague' — a baroque university city with six UNESCO-listed fountains and a magnificent plague column. Far fewer tourists than Prague, and far cheaper." },
+  { id:209, name:"Kroměříž Gardens", country:"🇨🇿 Czechia", lat:49.2984, lng:17.3961, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Village / Town", elevation:197, breathtaking:false, forumPick:false, routeOrder:109, gmaps:"https://www.google.com/maps?q=49.2984,17.3961", desc:"A UNESCO-listed baroque archbishop's palace with formal gardens. The cycling through the Haná lowland around it is flat, rural, and peaceful." },
+  { id:210, name:"Třeboň Fish Ponds", country:"🇨🇿 Czechia", lat:49.0, lng:14.7667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Lake / Water", elevation:430, breathtaking:false, forumPick:true, routeOrder:110, gmaps:"https://www.google.com/maps?q=49.0,14.7667", desc:"A medieval landscape of man-made fish ponds connected by cycling paths. The autumn reflection of birch and pine in still dark water is one of Bohemia's most beautiful images." },
+  { id:211, name:"Jizerské hory (Jizera Mountains)", country:"🇨🇿 Czechia", lat:50.8167, lng:15.2333, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1122, breathtaking:false, forumPick:true, routeOrder:111, gmaps:"https://www.google.com/maps?q=50.8167,15.2333", desc:"Rolling forested highlands on the Czech–Polish–German border. The Jizerská gravel cycling route is one of the finest extended off-road routes in Bohemia." },
+  { id:212, name:"Telč", country:"🇨🇿 Czechia", lat:49.1833, lng:15.45, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Village / Town", elevation:529, breathtaking:true, forumPick:false, routeOrder:112, gmaps:"https://www.google.com/maps?q=49.1833,15.45", desc:"A perfectly preserved UNESCO Renaissance town square reflected in an encircling pond. Often described as the most beautiful small town in Central Europe. Completely flat cycling surroundings." },
+  { id:213, name:"Kutná Hora – Bone Church", country:"🇨🇿 Czechia", lat:49.9484, lng:15.2686, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Village / Town", elevation:247, breathtaking:false, forumPick:true, routeOrder:113, gmaps:"https://www.google.com/maps?q=49.9484,15.2686", desc:"The Sedlec ossuary — a chapel decorated with the bones of 40,000 people. UNESCO-listed silver-mining city. The cycling approach from Prague via the Sázava valley is excellent." },
+  { id:214, name:"Hřensko – Elbe Gorge", country:"🇨🇿 Czechia", lat:50.8833, lng:14.2333, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Gorge / Canyon", elevation:120, breathtaking:true, forumPick:true, routeOrder:114, gmaps:"https://www.google.com/maps?q=50.8833,14.2333", desc:"Where the Kamenice river joins the Elbe through a dramatic sandstone gorge. The Czech side of the Bohemian Switzerland cycling is wilder and quieter than the German side." },
+  { id:215, name:"Beskydy Mountains", country:"🇨🇿 Czechia", lat:49.5, lng:18.5, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1323, breathtaking:false, forumPick:true, routeOrder:115, gmaps:"https://www.google.com/maps?q=49.5,18.5", desc:"Forested Carpathian foothills on the Czech–Slovak–Polish border. Quiet gravel roads, wooden folk architecture (roubenky), excellent cycling with almost no cars." },
+  { id:216, name:"Lednice–Valtice Cultural Landscape", country:"🇨🇿 Czechia", lat:48.8, lng:16.8, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Village / Town", elevation:163, breathtaking:true, forumPick:true, routeOrder:116, gmaps:"https://www.google.com/maps?q=48.8,16.8", desc:"A UNESCO romantic landscape of baroque châteaux, follies, minarets, and temples scattered through an English-style park. The cycling paths connecting the monuments are flat, peaceful, and surreal." },
+  { id:217, name:"Moravian Wine Region – Pálava Hills", country:"🇨🇿 Czechia", lat:48.8333, lng:16.65, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:549, breathtaking:true, forumPick:true, routeOrder:117, gmaps:"https://www.google.com/maps?q=48.8333,16.65", desc:"The Pálava limestone hills above the Dyje river give panoramic views across the Moravian wine country and into Austria. The cycling route through the vineyards at harvest time is one of Moravia's great pleasures." },
+  { id:218, name:"Brno", country:"🇨🇿 Czechia", lat:49.1951, lng:16.6068, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"City", elevation:237, breathtaking:false, forumPick:false, routeOrder:118, gmaps:"https://www.google.com/maps?q=49.1951,16.6068", desc:"Czech Republic's second city — a surprisingly vibrant design, food, and arts scene. The Spielberk castle cycling ascent gives good views. Very budget-friendly." },
+  { id:219, name:"Jičín & Bohemian Paradise", country:"🇨🇿 Czechia", lat:50.4333, lng:15.35, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Forest / Nature", elevation:304, breathtaking:true, forumPick:true, routeOrder:119, gmaps:"https://www.google.com/maps?q=50.4333,15.35", desc:"The 'Bohemian Paradise' geopark has the densest concentration of sandstone rock towers in Europe. The gravel cycling between Trosky castle ruins and the Prachovské skály towers is extraordinary." },
+  { id:220, name:"Vltava River Cycleway", country:"🇨🇿 Czechia", lat:48.9833, lng:14.3167, type:"water", typeLabel:"River", emoji:"💧", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"River", elevation:380, breathtaking:false, forumPick:true, routeOrder:120, gmaps:"https://www.google.com/maps?q=48.9833,14.3167", desc:"The cycling path along the Vltava from Prague south to Český Krumlov passes through the best of Bohemia — rolling hills, wooded banks, baroque towns — on quiet riverside tracks." },
+  { id:221, name:"Vienna & Danube Cycle Path", country:"🇦🇹 Austria", lat:48.2082, lng:16.3738, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Lowlands", terrain:"City", elevation:171, breathtaking:false, forumPick:true, routeOrder:121, gmaps:"https://www.google.com/maps?q=48.2082,16.3738", desc:"Imperial capital on the Danube. Excellent bike infrastructure. The EuroVelo 6 Danube path is flat, scenic, and famous worldwide." },
+  { id:222, name:"Salzburg", country:"🇦🇹 Austria", lat:47.8095, lng:13.055, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Hills", terrain:"City", elevation:424, breathtaking:false, forumPick:false, routeOrder:122, gmaps:"https://www.google.com/maps?q=47.8095,13.055", desc:"Baroque city beneath the Alps. Entry point to the lake district. Good rest day, expensive." },
+  { id:223, name:"Hallstatt", country:"🇦🇹 Austria", lat:47.5622, lng:13.6493, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:508, breathtaking:true, forumPick:true, routeOrder:123, gmaps:"https://www.google.com/maps?q=47.5622,13.6493", desc:"Possibly the most photographed village in the world. UNESCO site between vertical cliffs and a mirror-flat lake. Cycling in at dawn before tour buses is described as emotionally overwhelming." },
+  { id:224, name:"Dachstein Glacier Viewpoint", country:"🇦🇹 Austria", lat:47.4789, lng:13.6062, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Viewpoint", elevation:2109, breathtaking:true, forumPick:true, routeOrder:124, gmaps:"https://www.google.com/maps?q=47.4789,13.6062", desc:"The approach road to the Dachstein plateau gives views across the Salzkammergut lake district in every direction. Austria's single best cycling panorama according to Komoot collections." },
+  { id:225, name:"Grossglockner Pass", country:"🇦🇹 Austria", lat:47.0809, lng:12.8395, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2504, breathtaking:true, forumPick:true, routeOrder:125, gmaps:"https://www.google.com/maps?q=47.0809,12.8395", desc:"Austria's highest road pass. Franz-Josefs-Höhe glacier overlook. Every trans-Europe bikepacking report mentions this as a life highlight. A must." },
+  { id:226, name:"Salzkammergut Lakes", country:"🇦🇹 Austria", lat:47.6334, lng:13.7028, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:500, breathtaking:true, forumPick:false, routeOrder:126, gmaps:"https://www.google.com/maps?q=47.6334,13.7028", desc:"Alpine lake district: Wolfgangsee, Hallstätter See, Traunsee. Breathtaking scenery on every bend. Free lakeside bivouac spots exist." },
+  { id:227, name:"Ötztal Valley – Timmelsjoch", country:"🇦🇹 Austria", lat:46.9, lng:11.0, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2509, breathtaking:true, forumPick:true, routeOrder:127, gmaps:"https://www.google.com/maps?q=46.9,11.0", desc:"The Transalp crosses the entire Ötztal valley before ascending to 2800 m. The valley is strikingly narrow and deep, with glaciers visible from the road." },
+  { id:228, name:"Zillertal Alps – Zillertal Trail", country:"🇦🇹 Austria", lat:47.15, lng:11.8333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2200, breathtaking:true, forumPick:true, routeOrder:128, gmaps:"https://www.google.com/maps?q=47.15,11.8333", desc:"Bikepacking.com's featured loop connecting Austrian and Italian sides of the Zillertal Alps across three breathtaking passes." },
+  { id:229, name:"Innsbruck", country:"🇦🇹 Austria", lat:47.2682, lng:11.3923, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"City", elevation:574, breathtaking:false, forumPick:false, routeOrder:129, gmaps:"https://www.google.com/maps?q=47.2682,11.3923", desc:"Surrounded by peaks on all sides. World-class mountain bike trails on every flank. The Nordkette mountain is directly above the city." },
+  { id:230, name:"Zell am See & Kaprun", country:"🇦🇹 Austria", lat:47.3233, lng:12.7983, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Alps", terrain:"Lake / Water", elevation:755, breathtaking:true, forumPick:false, routeOrder:130, gmaps:"https://www.google.com/maps?q=47.3233,12.7983", desc:"Turquoise glacial lake beneath the Kitzsteinhorn glacier. The cycling circuit around the lake with constant mountain reflections is one of Austria's most photogenic routes." },
+  { id:231, name:"Plansee Lake", country:"🇦🇹 Austria", lat:47.5, lng:10.7333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:976, breathtaking:true, forumPick:true, routeOrder:131, gmaps:"https://www.google.com/maps?q=47.5,10.7333", desc:"An emerald alpine lake surrounded by forest with the Zugspitze massif visible at the head of the valley. Komoot riders consistently rate this among Austria's finest cycling days." },
+  { id:232, name:"Tannheimer Tal", country:"🇦🇹 Austria", lat:47.5, lng:10.5167, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Village / Town", elevation:1100, breathtaking:true, forumPick:true, routeOrder:132, gmaps:"https://www.google.com/maps?q=47.5,10.5167", desc:"A high valley ringed by dramatic limestone peaks — Vilsalpsee lake at its heart. Consistently listed as one of the Alps' most beautiful and undervisited destinations." },
+  { id:233, name:"Nassfeld Pass (Pramollo)", country:"🇦🇹 Austria", lat:46.5833, lng:13.2333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1530, breathtaking:true, forumPick:true, routeOrder:133, gmaps:"https://www.google.com/maps?q=46.5833,13.2333", desc:"The border crossing between Austria and Italy via a gravel military road. Cited on Austrian bikepacking forums as one of the most atmospheric alpine crossings." },
+  { id:234, name:"Wachau Valley", country:"🇦🇹 Austria", lat:48.3667, lng:15.5, type:"water", typeLabel:"River", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"River", elevation:210, breathtaking:true, forumPick:true, routeOrder:134, gmaps:"https://www.google.com/maps?q=48.3667,15.5", desc:"UNESCO World Heritage Danube valley — apricot orchards, medieval castle ruins, baroque abbeys, and excellent cycling path along the river. Melk Abbey on a cliff above the river is extraordinary." },
+  { id:235, name:"Krimml Waterfalls", country:"🇦🇹 Austria", lat:47.2167, lng:12.1667, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Viewpoint", elevation:1076, breathtaking:true, forumPick:true, routeOrder:135, gmaps:"https://www.google.com/maps?q=47.2167,12.1667", desc:"Europe's highest waterfalls (380 m total drop, in three tiers). The cycling approach up the Salzach valley is excellent, and the walking path beside the falls is included here for its extraordinary scale." },
+  { id:236, name:"Silvretta Pass", country:"🇦🇹 Austria", lat:46.85, lng:10.1833, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2032, breathtaking:true, forumPick:true, routeOrder:136, gmaps:"https://www.google.com/maps?q=46.85,10.1833", desc:"Pursuing Mountains' bikepackers took a host's route suggestion that crossed the Silvretta — 'beautiful views and spectacular riding.' The reservoir at the top is ringed by 3000 m peaks." },
+  { id:237, name:"Bregenzerwald", country:"🇦🇹 Austria", lat:47.3833, lng:9.9667, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Forest / Nature", elevation:1100, breathtaking:true, forumPick:false, routeOrder:137, gmaps:"https://www.google.com/maps?q=47.3833,9.9667", desc:"The Bregenz Forest — a deeply folded alpine landscape of cheese-making villages and forest road cycling. The region is famous for its cutting-edge rural architecture and excellent cheeses." },
+  { id:238, name:"Arlberg Pass", country:"🇦🇹 Austria", lat:47.1333, lng:10.2, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1793, breathtaking:true, forumPick:true, routeOrder:138, gmaps:"https://www.google.com/maps?q=47.1333,10.2", desc:"The historic east–west crossing of the Austrian Alps. The old road has less traffic than the tunnel. The descent towards St. Anton gives classic alpine switchbacks." },
+  { id:239, name:"Hohe Tauern – Felbertauern", country:"🇦🇹 Austria", lat:47.15, lng:12.5333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1651, breathtaking:true, forumPick:false, routeOrder:139, gmaps:"https://www.google.com/maps?q=47.15,12.5333", desc:"The northern approach to the Grossglockner area via the Felbertauern pass road is less known but equally dramatic. Deep glacial valleys, clear mountain streams." },
+  { id:240, name:"Gesäuse National Park", country:"🇦🇹 Austria", lat:47.5667, lng:14.6167, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Hard", cost:"Low €", region:"Alps", terrain:"Gorge / Canyon", elevation:600, breathtaking:true, forumPick:true, routeOrder:140, gmaps:"https://www.google.com/maps?q=47.5667,14.6167", desc:"The Enns river cuts a savage gorge through the Gesäuse limestone Alps. The cycling road through the gorge — vertical walls hundreds of metres above, white water below — is one of Austria's most dramatic." },
+  { id:241, name:"Rax & Schneeberg", country:"🇦🇹 Austria", lat:47.7, lng:15.6667, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Mountains", terrain:"Pass / Summit", elevation:2007, breathtaking:true, forumPick:false, routeOrder:141, gmaps:"https://www.google.com/maps?q=47.7,15.6667", desc:"The two limestone massifs south of Vienna give exceptional cycling on the Vienna side — accessible from the capital, yet completely alpine in character." },
+  { id:242, name:"Ennstal Valley", country:"🇦🇹 Austria", lat:47.55, lng:14.1667, type:"water", typeLabel:"River", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"River", elevation:630, breathtaking:false, forumPick:true, routeOrder:142, gmaps:"https://www.google.com/maps?q=47.55,14.1667", desc:"The long valley cycling path along the Enns river between Schladming and Admont passes through classic Austrian alpine scenery — flower-covered meadows, wooden farmhouses, mountains on all sides." },
+  { id:243, name:"Schladming – Planai", country:"🇦🇹 Austria", lat:47.3928, lng:13.6933, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:1894, breathtaking:true, forumPick:false, routeOrder:143, gmaps:"https://www.google.com/maps?q=47.3928,13.6933", desc:"A World Cup ski area that becomes exceptional mountain biking terrain in summer. The bike park and natural gravel trails above Schladming are cited on Austrian cycling forums." },
+  { id:244, name:"Mürzzuschlag – Semmering Pass", country:"🇦🇹 Austria", lat:47.6, lng:15.6833, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Pass / Summit", elevation:985, breathtaking:false, forumPick:true, routeOrder:144, gmaps:"https://www.google.com/maps?q=47.6,15.6833", desc:"The world's first mountain railway crosses the Semmering Pass. The old road beside it is a historic cycling route. A UNESCO Heritage railway and a beautiful mountain crossing." },
+  { id:245, name:"Stubai Valley", country:"🇦🇹 Austria", lat:47.1167, lng:11.3167, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:1000, breathtaking:true, forumPick:true, routeOrder:145, gmaps:"https://www.google.com/maps?q=47.1167,11.3167", desc:"A classic Tyrolean valley running south from Innsbruck beneath the Stubai glacier. The cycling up the valley to Neustift and beyond is outstanding. Forum riders describe the glacier views at the head of the valley as overwhelming." },
+  { id:246, name:"Pitztal Valley", country:"🇦🇹 Austria", lat:47.0667, lng:10.8667, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1000, breathtaking:true, forumPick:false, routeOrder:146, gmaps:"https://www.google.com/maps?q=47.0667,10.8667", desc:"One of Austria's quietest and most beautiful Tyrolean valleys. The road to the glacier is gradually steeper. Wild camping in the upper valley is exceptional." },
+  { id:247, name:"Zillertal Valley", country:"🇦🇹 Austria", lat:47.25, lng:11.8667, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Village / Town", elevation:540, breathtaking:true, forumPick:true, routeOrder:147, gmaps:"https://www.google.com/maps?q=47.25,11.8667", desc:"The 'Happy Valley' of the Tyrol — a classic wide alpine valley with wooden farmhouses, folklore, and excellent cycling on traffic-free cycle paths between villages." },
+  { id:248, name:"Mayrhofen", country:"🇦🇹 Austria", lat:47.1667, lng:11.8667, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:633, breathtaking:true, forumPick:false, routeOrder:148, gmaps:"https://www.google.com/maps?q=47.1667,11.8667", desc:"The head of the Zillertal, a classic Tyrolean resort with exceptional mountain biking. The gorge of the Zillerbach above town is dramatic." },
+  { id:249, name:"Heiligenblut", country:"🇦🇹 Austria", lat:47.04, lng:12.84, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Village / Town", elevation:1288, breathtaking:true, forumPick:true, routeOrder:149, gmaps:"https://www.google.com/maps?q=47.04,12.84", desc:"The quintessential Austrian alpine village at the foot of the Grossglockner road — a Gothic church spire beneath glaciated 3000 m peaks. Universally cited in Grossglockner cycling reports." },
+  { id:250, name:"Lienz – East Tyrol", country:"🇦🇹 Austria", lat:46.8289, lng:12.7697, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Village / Town", elevation:673, breathtaking:true, forumPick:true, routeOrder:150, gmaps:"https://www.google.com/maps?q=46.8289,12.7697", desc:"The gateway to East Tyrol — a sunny alpine city between the Dolomites and the Hohe Tauern. The cycling into the Isel valley and Virgen valley is exceptional and undervisited." },
+  { id:251, name:"Hallein Salt Mines", country:"🇦🇹 Austria", lat:47.6833, lng:13.0833, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:450, breathtaking:false, forumPick:false, routeOrder:151, gmaps:"https://www.google.com/maps?q=47.6833,13.0833", desc:"Celtic salt mines on the Salzach river south of Salzburg. The cycling path along the Salzach between here and Salzburg is beautiful." },
+  { id:252, name:"Kitzbühel", country:"🇦🇹 Austria", lat:47.45, lng:12.3833, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:762, breathtaking:true, forumPick:false, routeOrder:152, gmaps:"https://www.google.com/maps?q=47.45,12.3833", desc:"The world-famous ski resort becomes an excellent cycling base in summer. The surrounding Kitzbüheler Alps and the cycling over Thurn Pass are exceptional." },
+  { id:253, name:"Kufstein Fortress", country:"🇦🇹 Austria", lat:47.5833, lng:12.1667, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Viewpoint", elevation:522, breathtaking:true, forumPick:false, routeOrder:153, gmaps:"https://www.google.com/maps?q=47.5833,12.1667", desc:"An imposing fortress above the Inn river at the German-Austrian border. The cycling path from Kufstein into the Inn valley is one of the finest river cycling routes in the Alps." },
+  { id:254, name:"Achensee", country:"🇦🇹 Austria", lat:47.4667, lng:11.7333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Alps", terrain:"Lake / Water", elevation:930, breathtaking:true, forumPick:true, routeOrder:154, gmaps:"https://www.google.com/maps?q=47.4667,11.7333", desc:"Tyrol's largest lake, brilliantly blue, between steep mountain walls. The cycling approach via the historic rack railway town of Jenbach is excellent. Forum riders consistently rate this lake as Austria's most beautiful." },
+  { id:255, name:"Ehrwald – Zugspitze Arena", country:"🇦🇹 Austria", lat:47.4, lng:10.9333, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Viewpoint", elevation:994, breathtaking:true, forumPick:true, routeOrder:155, gmaps:"https://www.google.com/maps?q=47.4,10.9333", desc:"The Austrian side of the Zugspitze gives cycling access to the highest mountain massif in Germany. The Zugspitzplatt glacial plateau is visible from the valley roads." },
+  { id:256, name:"Karwendel Mountains", country:"🇦🇹 Austria", lat:47.3667, lng:11.5, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Alps", terrain:"Forest / Nature", elevation:1500, breathtaking:true, forumPick:true, routeOrder:156, gmaps:"https://www.google.com/maps?q=47.3667,11.5", desc:"The largest contiguous nature reserve in Austria. The gravel roads and forest tracks through the Karwendel are some of Austria's finest bikepacking terrain — wild, remote, and free." },
+  { id:257, name:"Lech am Arlberg", country:"🇦🇹 Austria", lat:47.2, lng:10.15, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1444, breathtaking:true, forumPick:false, routeOrder:157, gmaps:"https://www.google.com/maps?q=47.2,10.15", desc:"A refined alpine village at the foot of the Arlberg pass. The surrounding Lech valley cycling and the gravel routes into the Vorarlberg mountains are outstanding." },
+  { id:258, name:"Wörthersee", country:"🇦🇹 Austria", lat:46.6167, lng:14.15, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Lake / Water", elevation:439, breathtaking:true, forumPick:false, routeOrder:158, gmaps:"https://www.google.com/maps?q=46.6167,14.15", desc:"A warm-water Carinthian lake surrounded by gentle hills and small baroque churches. The cycling circuit is easy and scenic. Excellent swimming stops." },
+  { id:259, name:"Nassereith – Fernpass", country:"🇦🇹 Austria", lat:47.3167, lng:10.8333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Moderate", cost:"Low €", region:"Alps", terrain:"Pass / Summit", elevation:1209, breathtaking:false, forumPick:true, routeOrder:159, gmaps:"https://www.google.com/maps?q=47.3167,10.8333", desc:"The Fernpass was used by Roman legions and medieval merchants. The cycling road over the pass through quiet pine forest and past small lakes is historically and scenically excellent." },
+  { id:260, name:"Vorarlberg – Montafon Valley", country:"🇦🇹 Austria", lat:47.0667, lng:9.95, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:700, breathtaking:true, forumPick:true, routeOrder:160, gmaps:"https://www.google.com/maps?q=47.0667,9.95", desc:"The Montafon is a deep, narrow alpine valley running south from Bludenz towards the Swiss border and the Silvretta. Forum riders describe it as Austria's finest unspoilt valley for bikepacking." },
+  { id:261, name:"Basel", country:"🇨🇭 Switzerland", lat:47.5596, lng:7.5886, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Hills", terrain:"City", elevation:260, breathtaking:false, forumPick:false, routeOrder:161, gmaps:"https://www.google.com/maps?q=47.5596,7.5886", desc:"Gateway to Switzerland. Rhine border city. Float the Rhine like the locals after a hot day's ride." },
+  { id:262, name:"Rhine Gorge (Rheinschlucht)", country:"🇨🇭 Switzerland", lat:46.8167, lng:9.1667, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Gorge / Canyon", elevation:700, breathtaking:true, forumPick:true, routeOrder:162, gmaps:"https://www.google.com/maps?q=46.8167,9.1667", desc:"The 'Swiss Grand Canyon.' Wild rock formations, emerald water, complete solitude. Bikepackers describe the gorge floor cycling path as breathtakingly beautiful." },
+  { id:263, name:"Grosse Scheidegg – Eiger North Face", country:"🇨🇭 Switzerland", lat:46.6611, lng:8.1003, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Viewpoint", elevation:1962, breathtaking:true, forumPick:true, routeOrder:163, gmaps:"https://www.google.com/maps?q=46.6611,8.1003", desc:"From the pass summit you face the Eiger's 1800 m north face dead-on. Klauskomenda's Switzerland blog calls this the defining moment of Alpine cycling." },
+  { id:264, name:"Lauterbrunnen Valley", country:"🇨🇭 Switzerland", lat:46.5942, lng:7.9084, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Gorge / Canyon", elevation:796, breathtaking:true, forumPick:true, routeOrder:164, gmaps:"https://www.google.com/maps?q=46.5942,7.9084", desc:"72 waterfalls pouring into a sheer glacial valley. Rolling Existence calls this 'the single most dramatic cycling kilometre in Europe.' Cannot be overstated." },
+  { id:265, name:"Lake Lucerne Loop", country:"🇨🇭 Switzerland", lat:47.0502, lng:8.3093, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:600, breathtaking:true, forumPick:true, routeOrder:165, gmaps:"https://www.google.com/maps?q=47.0502,8.3093", desc:"Komoot's Switzerland bikepacking highlight. Early morning light on the lake is cited in forum reports as one of Europe's finest cycling experiences." },
+  { id:266, name:"Albula Pass", country:"🇨🇭 Switzerland", lat:46.5833, lng:9.85, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2315, breathtaking:true, forumPick:true, routeOrder:166, gmaps:"https://www.google.com/maps?q=46.5833,9.85", desc:"Graubünden's most scenic pass. Rolling Existence describes 'unforgettable passes through deep gorges and jagged peaks.' The Engadin valley panorama is staggering." },
+  { id:267, name:"Furka Pass", country:"🇨🇭 Switzerland", lat:46.5731, lng:8.4153, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2429, breathtaking:true, forumPick:true, routeOrder:167, gmaps:"https://www.google.com/maps?q=46.5731,8.4153", desc:"The Rhône Glacier is visible from the summit road — a melting icon. James Bond drove this road. A bikepacking icon across every forum." },
+  { id:268, name:"Gotthard Pass (Tremola)", country:"🇨🇭 Switzerland", lat:46.5556, lng:8.5645, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2106, breathtaking:true, forumPick:true, routeOrder:168, gmaps:"https://www.google.com/maps?q=46.5556,8.5645", desc:"The cobblestoned old Tremola road is a bikepacking icon. A 2000-year-old crossing via hand-laid stone setts. Multiple riders describe it as their single favourite road surface." },
+  { id:269, name:"Lugano Lake & Monte Brè", country:"🇨🇭 Switzerland", lat:46.0037, lng:8.9511, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Viewpoint", elevation:925, breathtaking:true, forumPick:false, routeOrder:169, gmaps:"https://www.google.com/maps?q=46.0037,8.9511", desc:"Italian-speaking Switzerland on a palm-fringed lake ringed by Alps. The Monte Brè climb gives 270° panorama: Alps behind, lake below, Italy ahead." },
+  { id:270, name:"Susten Pass", country:"🇨🇭 Switzerland", lat:46.7272, lng:8.4436, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2224, breathtaking:true, forumPick:true, routeOrder:170, gmaps:"https://www.google.com/maps?q=46.7272,8.4436", desc:"Less famous than Furka or Gotthard but consistently cited as Switzerland's most beautiful road. The glacier views on the north face are otherworldly." },
+  { id:271, name:"Lake Thun", country:"🇨🇭 Switzerland", lat:46.75, lng:7.7167, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:558, breathtaking:true, forumPick:true, routeOrder:171, gmaps:"https://www.google.com/maps?q=46.75,7.7167", desc:"Rolling Existence describes arriving: 'a lovely city along Lake Thun at the outlet to the crystal blue Aare.' The lakeside path with Eiger/Mönch/Jungfrau ahead is iconic." },
+  { id:272, name:"Engadin Valley – St. Moritz", country:"🇨🇭 Switzerland", lat:46.4984, lng:9.8355, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1856, breathtaking:true, forumPick:true, routeOrder:172, gmaps:"https://www.google.com/maps?q=46.4984,9.8355", desc:"High alpine valley at 1800 m with a chain of brilliant blue lakes. The gravel roads recommended by Ride and Smile as part of the Ischgl–Livigno–St. Moritz circuit are exceptional." },
+  { id:273, name:"Rheinfall (Europe's Largest Waterfall)", country:"🇨🇭 Switzerland", lat:47.6774, lng:8.6159, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Lake / Water", elevation:360, breathtaking:true, forumPick:true, routeOrder:173, gmaps:"https://www.google.com/maps?q=47.6774,8.6159", desc:"The largest waterfall in Europe by volume — a 150 m wide, 23 m tall curtain of water on the Rhine. Most cyclists pass within 10 km without knowing. Spectacular stop." },
+  { id:274, name:"Gruyères & Fribourg Prealps", country:"🇨🇭 Switzerland", lat:46.5833, lng:7.0833, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"High €€€", region:"Hills", terrain:"Village / Town", elevation:830, breathtaking:true, forumPick:false, routeOrder:174, gmaps:"https://www.google.com/maps?q=46.5833,7.0833", desc:"The medieval castle town of Gruyères surrounded by rolling green prealp hills. Scenically perfect Swiss pastoral landscape, far less known than the high alps." },
+  { id:275, name:"Bern Old Town & Aare Loop", country:"🇨🇭 Switzerland", lat:46.948, lng:7.4474, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"High €€€", region:"Hills", terrain:"City", elevation:540, breathtaking:false, forumPick:false, routeOrder:175, gmaps:"https://www.google.com/maps?q=46.948,7.4474", desc:"Swiss capital on a river peninsula. The Aare river swimming culture and medieval arcades are uniquely Swiss. Good rest day before the alpine push." },
+  { id:276, name:"Grimsel Pass", country:"🇨🇭 Switzerland", lat:46.5667, lng:8.3333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2165, breathtaking:true, forumPick:true, routeOrder:176, gmaps:"https://www.google.com/maps?q=46.5667,8.3333", desc:"The Grimsel connects the Haslital to the Rhône valley via a dam-reservoir at 2165 m. The road across the bleak grey rock plateau above the reservoirs is uniquely lunar. Often combined with Furka and Gotthard in a three-pass loop." },
+  { id:277, name:"Klausen Pass", country:"🇨🇭 Switzerland", lat:46.8833, lng:8.85, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:1948, breathtaking:true, forumPick:true, routeOrder:177, gmaps:"https://www.google.com/maps?q=46.8833,8.85", desc:"A quiet, scenic pass connecting Uri and Glarus. Forum riders consistently recommend this as Switzerland's best 'hidden' pass — less traffic than the main Alpine routes, equally dramatic scenery." },
+  { id:278, name:"Oberalppass", country:"🇨🇭 Switzerland", lat:46.6583, lng:8.675, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2044, breathtaking:true, forumPick:true, routeOrder:178, gmaps:"https://www.google.com/maps?q=46.6583,8.675", desc:"Cycling Destination's bikepacker describes the approach: 'winding hairpin bends, not letting that steep stretch scare you off.' The source of the Rhine is just below the summit." },
+  { id:279, name:"Julier Pass (Pass dal Julier)", country:"🇨🇭 Switzerland", lat:46.4667, lng:9.7167, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2284, breathtaking:true, forumPick:true, routeOrder:179, gmaps:"https://www.google.com/maps?q=46.4667,9.7167", desc:"One of the oldest Alpine crossings, used since Roman times. The approach through the Engadin and the summit plateau are beautiful. Two ancient Roman columns still mark the summit." },
+  { id:280, name:"Maloja Pass", country:"🇨🇭 Switzerland", lat:46.4, lng:9.6833, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:1815, breathtaking:true, forumPick:true, routeOrder:180, gmaps:"https://www.google.com/maps?q=46.4,9.6833", desc:"The descent from the Engadin plateau to the Italian Bregaglia valley is one of Switzerland's most dramatic — a long series of hairpins falling through pine forest to Lake Como far below." },
+  { id:281, name:"Bernina Pass", country:"🇨🇭 Switzerland", lat:46.4078, lng:10.0261, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2328, breathtaking:true, forumPick:true, routeOrder:181, gmaps:"https://www.google.com/maps?q=46.4078,10.0261", desc:"Switzerland's southernmost major pass. The landscape above 2000 m is completely glaciated — the Morteratsch glacier is visible from the road. The Bernina Express railway line follows the same route." },
+  { id:282, name:"Lake Geneva (Lac Léman)", country:"🇨🇭 Switzerland", lat:46.45, lng:6.5, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:372, breathtaking:true, forumPick:true, routeOrder:182, gmaps:"https://www.google.com/maps?q=46.45,6.5", desc:"The full circuit of Lake Geneva (186 km) passes through Swiss vineyards and French Savoy with the Alps reflected in Europe's largest alpine lake. One of Switzerland's great cycling journeys." },
+  { id:283, name:"Lausanne & Lavaux Vineyards", country:"🇨🇭 Switzerland", lat:46.5197, lng:6.6323, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"High €€€", region:"Hills", terrain:"Viewpoint", elevation:500, breathtaking:true, forumPick:true, routeOrder:183, gmaps:"https://www.google.com/maps?q=46.5197,6.6323", desc:"The UNESCO Lavaux vineyard terraces above Lake Geneva — a cascade of stone-walled vineyards falling to the water with Alps across the lake. One of Switzerland's most beautiful cycling panoramas." },
+  { id:284, name:"Montreux & Chillon Castle", country:"🇨🇭 Switzerland", lat:46.4333, lng:6.9167, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"High €€€", region:"Hills", terrain:"Viewpoint", elevation:375, breathtaking:true, forumPick:true, routeOrder:184, gmaps:"https://www.google.com/maps?q=46.4333,6.9167", desc:"The Chillon castle on a lake island and the Montreux Riviera cycling path are among the most famous cycle touring images in Switzerland. The view of the castle with the Dents du Midi behind it is iconic." },
+  { id:285, name:"Interlaken & Jungfrau Arena", country:"🇨🇭 Switzerland", lat:46.6863, lng:7.8632, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:568, breathtaking:true, forumPick:true, routeOrder:185, gmaps:"https://www.google.com/maps?q=46.6863,7.8632", desc:"The town between the Brienz and Thun lakes below the Jungfrau (4158 m). The cycling paths leading towards the mountain — through Grindelwald or Lauterbrunnen — are iconic." },
+  { id:286, name:"Zermatt & Matterhorn", country:"🇨🇭 Switzerland", lat:46.0207, lng:7.7491, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Viewpoint", elevation:1608, breathtaking:true, forumPick:true, routeOrder:186, gmaps:"https://www.google.com/maps?q=46.0207,7.7491", desc:"The Matterhorn is one of the world's most recognisable mountains. The car-free valley approach to Zermatt — cycling up the Matter valley on the service road — gives the mountain revealed progressively over 20 km." },
+  { id:287, name:"Saas-Fee", country:"🇨🇭 Switzerland", lat:46.1106, lng:7.9278, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1798, breathtaking:true, forumPick:false, routeOrder:187, gmaps:"https://www.google.com/maps?q=46.1106,7.9278", desc:"A car-free village beneath a ring of 4000 m peaks and glaciers. The cycling approach up the Saas valley is dramatic and the village completely surrounded by white ice." },
+  { id:288, name:"Davos – Flüela Pass", country:"🇨🇭 Switzerland", lat:46.85, lng:9.9667, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2383, breathtaking:true, forumPick:true, routeOrder:188, gmaps:"https://www.google.com/maps?q=46.85,9.9667", desc:"The Flüela pass above Davos gives access to the Engadin and is one of Graubünden's finest. The gravel tracks above Davos — recommended by Ride and Smile for the Ischgl circuit — are exceptional." },
+  { id:289, name:"Klosters", country:"🇨🇭 Switzerland", lat:46.8667, lng:9.8833, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1209, breathtaking:true, forumPick:false, routeOrder:189, gmaps:"https://www.google.com/maps?q=46.8667,9.8833", desc:"A quieter neighbour to Davos with outstanding gravel cycling into the Prättigau. Ride and Smile specifically highlights Davos Klosters as a mountain biking hub for cross-border alpine adventures." },
+  { id:290, name:"Splügen Pass", country:"🇨🇭 Switzerland", lat:46.5, lng:9.3167, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2113, breathtaking:true, forumPick:true, routeOrder:190, gmaps:"https://www.google.com/maps?q=46.5,9.3167", desc:"An ancient Roman and medieval trade route over the Alps. The Swiss side drops through a virtually traffic-free pass road. Less famous than Gotthard, more atmospheric according to experienced bikepackers." },
+  { id:291, name:"Airolo & Gotthard Base", country:"🇨🇭 Switzerland", lat:46.5333, lng:8.6, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1175, breathtaking:false, forumPick:true, routeOrder:191, gmaps:"https://www.google.com/maps?q=46.5333,8.6", desc:"The southern portal of the Gotthard tunnel and the foot of the pass road. The valley south of Airolo — the Leventina — is a dramatic descent to Ticino on excellent cycling paths." },
+  { id:292, name:"Ticino – Valle Maggia", country:"🇨🇭 Switzerland", lat:46.2667, lng:8.7, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Hard", cost:"High €€€", region:"Mountains", terrain:"Gorge / Canyon", elevation:300, breathtaking:true, forumPick:true, routeOrder:192, gmaps:"https://www.google.com/maps?q=46.2667,8.7", desc:"A wild, narrow valley of glacier-carved granite, waterfalls, and crystal-clear green swimming holes. The Maggia river cycling track is one of Ticino's finest — remote, beautiful, and perfectly rideable." },
+  { id:293, name:"Locarno & Lake Maggiore", country:"🇨🇭 Switzerland", lat:46.1667, lng:8.8, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:197, breathtaking:true, forumPick:false, routeOrder:193, gmaps:"https://www.google.com/maps?q=46.1667,8.8", desc:"Switzerland's sunniest town on the northern tip of Lake Maggiore. The cycling path to Ascona and along the lake shore is beautiful and almost flat. Palm trees and Alps together." },
+  { id:294, name:"Jura – Franches-Montagnes", country:"🇨🇭 Switzerland", lat:47.25, lng:7.0, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Forest / Nature", elevation:1000, breathtaking:false, forumPick:true, routeOrder:194, gmaps:"https://www.google.com/maps?q=47.25,7.0", desc:"The high plateau of the Franches-Montagnes (Freiberge) — a gentle, rolling highland of horse pastures and forest roads. Bikepacking Switzerland's quietest and most peaceful riding region." },
+  { id:295, name:"Chasseral Summit", country:"🇨🇭 Switzerland", lat:47.1333, lng:7.0667, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Hills", terrain:"Pass / Summit", elevation:1607, breathtaking:true, forumPick:true, routeOrder:195, gmaps:"https://www.google.com/maps?q=47.1333,7.0667", desc:"The highest point of the Bernese Jura, giving a remarkable panorama across the entire Swiss Mittelland to the Alps and, on clear days, to the Vosges and Black Forest. Completely unexpected scale of view." },
+  { id:296, name:"Aletsch Glacier Viewpoint", country:"🇨🇭 Switzerland", lat:46.5, lng:8.0833, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Viewpoint", elevation:2869, breathtaking:true, forumPick:true, routeOrder:196, gmaps:"https://www.google.com/maps?q=46.5,8.0833", desc:"Europe's longest glacier (23 km) viewed from the Eggishorn above Fiesch. The scale of the ice — a motorway of white flowing between 4000 m peaks — is incomprehensible from photographs. Must be seen." },
+  { id:297, name:"Leuk & Leukerbad", country:"🇨🇭 Switzerland", lat:46.3167, lng:7.6333, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1411, breathtaking:true, forumPick:false, routeOrder:197, gmaps:"https://www.google.com/maps?q=46.3167,7.6333", desc:"The highest thermal spa town in the Alps, perched at 1411 m beneath extraordinary limestone cliff walls (Gemmi Pass). The cycling up from the Rhône valley is brutal and completely rewarded." },
+  { id:298, name:"Gorges du Trient", country:"🇨🇭 Switzerland", lat:46.0667, lng:7.0167, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"High €€€", region:"Alps", terrain:"Gorge / Canyon", elevation:900, breathtaking:true, forumPick:true, routeOrder:198, gmaps:"https://www.google.com/maps?q=46.0667,7.0167", desc:"A spectacular slot canyon on the French-Swiss border near Martigny. The cycling through the Trient valley leading to the gorge is a favourite among Alps Divide route riders." },
+  { id:299, name:"Verbier", country:"🇨🇭 Switzerland", lat:46.0997, lng:7.2286, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Extreme", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1500, breathtaking:true, forumPick:true, routeOrder:199, gmaps:"https://www.google.com/maps?q=46.0997,7.2286", desc:"One of the Alps' greatest mountain biking destinations. The Verbier Bike Park and the natural gravel routes above the village are cited as world-class. Expensive village, camping nearby is possible." },
+  { id:300, name:"Sanetsch Pass", country:"🇨🇭 Switzerland", lat:46.3333, lng:7.3, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2252, breathtaking:true, forumPick:true, routeOrder:200, gmaps:"https://www.google.com/maps?q=46.3333,7.3", desc:"A hidden gem of the Bernese Alps — a rough pass road above the Derborence reserve (a forest that fell in a landslide, preserved by UNESCO). Forum bikepackers call this one of Switzerland's most eerie and beautiful routes." },
+  { id:301, name:"Reschensee Sunken Church", country:"🇮🇹 Italy", lat:46.6667, lng:10.5333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Mountains", terrain:"Lake / Water", elevation:1498, breathtaking:true, forumPick:true, routeOrder:201, gmaps:"https://www.google.com/maps?q=46.6667,10.5333", desc:"A 14th-century church bell tower standing in an artificial lake. Pursuing Mountains calls this 'unmissable.' Visible from the cycle path. Completely surreal." },
+  { id:302, name:"Stelvio Pass", country:"🇮🇹 Italy", lat:46.5286, lng:10.453, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2758, breathtaking:true, forumPick:true, routeOrder:202, gmaps:"https://www.google.com/maps?q=46.5286,10.453", desc:"48 hairpin bends, 2758 m, the most famous cycling climb on earth. The view from the top stops conversation completely. Every forum lists this as a bucket-list summit." },
+  { id:303, name:"Dolomites – Passo Giau", country:"🇮🇹 Italy", lat:46.4836, lng:12.0564, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2236, breathtaking:true, forumPick:true, routeOrder:203, gmaps:"https://www.google.com/maps?q=46.4836,12.0564", desc:"Rose-gold dolomite spires at sunset over the pass. Riders call the Dolomites the most photogenic mountains in Europe. Completely undeniable." },
+  { id:304, name:"Sellaronda MTB Circuit", country:"🇮🇹 Italy", lat:46.5094, lng:11.7597, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2240, breathtaking:true, forumPick:true, routeOrder:204, gmaps:"https://www.google.com/maps?q=46.5094,11.7597", desc:"The legendary loop around the Sella massif — four passes in one circuit. The surrounding towers are unlike anything else in Europe." },
+  { id:305, name:"Lake Como North Cliffs", country:"🇮🇹 Italy", lat:46.1667, lng:9.2667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:200, breathtaking:true, forumPick:true, routeOrder:205, gmaps:"https://www.google.com/maps?q=46.1667,9.2667", desc:"The narrow cliff road on the lake's western shore (Via Regina) is terrifying and magnificent simultaneously. Multiple forum posts describe crying at the view." },
+  { id:306, name:"Lake Garda – Ponale Road", country:"🇮🇹 Italy", lat:45.8859, lng:10.8424, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Viewpoint", elevation:70, breathtaking:true, forumPick:true, routeOrder:206, gmaps:"https://www.google.com/maps?q=45.8859,10.8424", desc:"The old Ponale road carved into the cliff above the lake's northern tip is now a gravel cycling route. A 'floating road with the whole of Garda below.' Italy's most dramatic gravel stretch." },
+  { id:307, name:"Bolzano / South Tyrol Apple Route", country:"🇮🇹 Italy", lat:46.4983, lng:11.3548, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:262, breathtaking:false, forumPick:true, routeOrder:207, gmaps:"https://www.google.com/maps?q=46.4983,11.3548", desc:"Cycle path through kilometres of apple orchards backed by vertical Dolomite walls. Pursuing Mountains: 'unreal scenery with almost no effort.'" },
+  { id:308, name:"Livigno Loop", country:"🇮🇹 Italy", lat:46.5383, lng:10.1366, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1816, breathtaking:true, forumPick:true, routeOrder:208, gmaps:"https://www.google.com/maps?q=46.5383,10.1366", desc:"Bikepacking.com features this loop: 'breathtaking riding at secluded elevations, time your ride with the changing leaves of the European larch trees.'" },
+  { id:309, name:"Val di Funes – Santa Maddalena", country:"🇮🇹 Italy", lat:46.6667, lng:11.75, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Medium €€", region:"Alps", terrain:"Viewpoint", elevation:1300, breathtaking:true, forumPick:true, routeOrder:209, gmaps:"https://www.google.com/maps?q=46.6667,11.75", desc:"The iconic view of a tiny Tyrolean chapel with the Odle Dolomite group directly behind. Ranked among the most photographed landscapes in Europe." },
+  { id:310, name:"Lago di Braies (Pragser Wildsee)", country:"🇮🇹 Italy", lat:46.6958, lng:12.0853, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:1496, breathtaking:true, forumPick:true, routeOrder:210, gmaps:"https://www.google.com/maps?q=46.6958,12.0853", desc:"An emerald-green lake at the foot of the Braies Dolomites. Forum riders describe the colour of the water as 'literally unreal.'" },
+  { id:311, name:"Passo dello Spluga", country:"🇮🇹 Italy", lat:46.5, lng:9.3333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2113, breathtaking:true, forumPick:true, routeOrder:211, gmaps:"https://www.google.com/maps?q=46.5,9.3333", desc:"An ancient Roman and medieval trade route. The Italian side drops through a wild, virtually traffic-free gorge road. More atmospheric than Stelvio according to experienced bikepackers." },
+  { id:312, name:"Drei Zinnen (Tre Cime di Lavaredo)", country:"🇮🇹 Italy", lat:46.6196, lng:12.3025, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Viewpoint", elevation:2333, breathtaking:true, forumPick:true, routeOrder:212, gmaps:"https://www.google.com/maps?q=46.6196,12.3025", desc:"Three vertical dolomite pillars rising 900 m from the plateau. The gravel loop around the base is one of the most photographed mountain circuits in the world." },
+  { id:313, name:"Passo di Gavia", country:"🇮🇹 Italy", lat:46.3472, lng:10.4944, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2621, breathtaking:true, forumPick:true, routeOrder:213, gmaps:"https://www.google.com/maps?q=46.3472,10.4944", desc:"Often considered the wildest pass in the Alps — narrow, partially unpaved, walls of snow even in July. The summit crosses into a different world. Legendary in Giro d'Italia history." },
+  { id:314, name:"Val Gardena (Grödner Tal)", country:"🇮🇹 Italy", lat:46.55, lng:11.7, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1563, breathtaking:true, forumPick:false, routeOrder:214, gmaps:"https://www.google.com/maps?q=46.55,11.7", desc:"A Ladin-speaking valley flanked by the Sassolungo and Sella groups. The road between the Dolomite towers at golden hour is cited as visually incomparable." },
+  { id:315, name:"Lago di Fedaia – Marmolada Glacier", country:"🇮🇹 Italy", lat:46.45, lng:11.8667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:2057, breathtaking:true, forumPick:true, routeOrder:215, gmaps:"https://www.google.com/maps?q=46.45,11.8667", desc:"A reservoir at 2000 m with the Marmolada — Queen of the Dolomites and its shrinking glacier — as the backdrop. Steep, brutal, absolutely stunning." },
+  { id:316, name:"Cinque Terre Coastal Road", country:"🇮🇹 Italy", lat:44.1, lng:9.7333, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"High €€€", region:"Coast", terrain:"Viewpoint", elevation:300, breathtaking:true, forumPick:true, routeOrder:216, gmaps:"https://www.google.com/maps?q=44.1,9.7333", desc:"Five cliff-face villages connected by coastal trails. The road above the villages gives a constant panorama of coloured houses on vertical cliffs above turquoise sea." },
+  { id:317, name:"Verona", country:"🇮🇹 Italy", lat:45.4384, lng:10.9916, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:59, breathtaking:false, forumPick:false, routeOrder:217, gmaps:"https://www.google.com/maps?q=45.4384,10.9916", desc:"Shakespeare's city. Roman amphitheatre. Flat Po plains cycling. Good value food and wine." },
+  { id:318, name:"Lake Iseo & Franciacorta", country:"🇮🇹 Italy", lat:45.7, lng:10.0667, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Lake / Water", elevation:186, breathtaking:true, forumPick:false, routeOrder:218, gmaps:"https://www.google.com/maps?q=45.7,10.0667", desc:"The least-visited of the Italian lakes, with a large island (Monte Isola) at its centre and the vineyards of Franciacorta on its southern shore. The cycling circuit combines lake, island, and wine country." },
+  { id:319, name:"Bergamo Upper City (Città Alta)", country:"🇮🇹 Italy", lat:45.7037, lng:9.6633, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Viewpoint", elevation:249, breathtaking:true, forumPick:true, routeOrder:219, gmaps:"https://www.google.com/maps?q=45.7037,9.6633", desc:"The walled upper city of Bergamo, with a Venetian defensive wall encircling a perfectly preserved medieval town. The cycling ascent through the lower city gives a panoramic reward." },
+  { id:320, name:"Dolomites – Passo Falzarego", country:"🇮🇹 Italy", lat:46.5092, lng:12.0078, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2105, breathtaking:true, forumPick:true, routeOrder:220, gmaps:"https://www.google.com/maps?q=46.5092,12.0078", desc:"The Falzarego connects the Cortina valley to the Livinallongo with views of the Lagazuoi massif and its WWI tunnel system. A historically rich and visually staggering pass." },
+  { id:321, name:"Passo Rolle", country:"🇮🇹 Italy", lat:46.3042, lng:11.7836, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1984, breathtaking:true, forumPick:true, routeOrder:221, gmaps:"https://www.google.com/maps?q=46.3042,11.7836", desc:"The Pale di San Martino — vertical white dolomite towers — rise directly above the pass road. One of the most dramatic summit panoramas in the entire Dolomite range." },
+  { id:322, name:"Alpe di Siusi (Seiser Alm)", country:"🇮🇹 Italy", lat:46.55, lng:11.6167, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Viewpoint", elevation:2000, breathtaking:true, forumPick:true, routeOrder:222, gmaps:"https://www.google.com/maps?q=46.55,11.6167", desc:"Europe's largest alpine meadow plateau at 2000 m, surrounded by the Sassolungo and Sciliar Dolomite groups. The cycling access via electric shuttle is controlled — but the gravel riding above is world-class." },
+  { id:323, name:"Passo Fedaia", country:"🇮🇹 Italy", lat:46.4586, lng:11.8758, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2057, breathtaking:true, forumPick:true, routeOrder:223, gmaps:"https://www.google.com/maps?q=46.4586,11.8758", desc:"The cycling ascent to the Fedaia dam, with the Marmolada glacier visible across the reservoir, is one of the Dolomites' most dramatic approach roads." },
+  { id:324, name:"Bolzano – Merano Cycling Path", country:"🇮🇹 Italy", lat:46.6667, lng:11.15, type:"water", typeLabel:"River", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"River", elevation:300, breathtaking:true, forumPick:true, routeOrder:224, gmaps:"https://www.google.com/maps?q=46.6667,11.15", desc:"The riverside cycling path along the Adige and Passer rivers between Bolzano and Merano is flat, beautifully maintained, and passes through a landscape of vineyards and apple orchards beneath Dolomite walls." },
+  { id:325, name:"Cortina d'Ampezzo", country:"🇮🇹 Italy", lat:46.5362, lng:12.1357, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Village / Town", elevation:1224, breathtaking:true, forumPick:true, routeOrder:225, gmaps:"https://www.google.com/maps?q=46.5362,12.1357", desc:"The 'Queen of the Dolomites' — a glamorous resort town completely encircled by vertical rock towers. The cycling circuits from Cortina give access to Falzarego, Giau, Tre Croci, and Passo Cimabanche." },
+  { id:326, name:"Valpolicella Wine & Cycling", country:"🇮🇹 Italy", lat:45.55, lng:10.8667, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:250, breathtaking:false, forumPick:true, routeOrder:226, gmaps:"https://www.google.com/maps?q=45.55,10.8667", desc:"The hilly Valpolicella region north of Verona produces Amarone and Ripasso. The cycling through vine-covered hills and ancient stone villages is excellent and almost flat." },
+  { id:327, name:"Val d'Aosta – Aosta City", country:"🇮🇹 Italy", lat:45.7372, lng:7.3153, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"City", elevation:583, breathtaking:false, forumPick:true, routeOrder:227, gmaps:"https://www.google.com/maps?q=45.7372,7.3153", desc:"Roman city at the foot of Mont Blanc, the Matterhorn, and the Gran Paradiso. The valley cycling path along the Dora Baltea river is excellent." },
+  { id:328, name:"Gran Paradiso National Park", country:"🇮🇹 Italy", lat:45.5167, lng:7.2667, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Alps", terrain:"Forest / Nature", elevation:2000, breathtaking:true, forumPick:true, routeOrder:228, gmaps:"https://www.google.com/maps?q=45.5167,7.2667", desc:"Italy's first national park — ibex, chamois, eagles, and glaciers. The cycling up the Valsavarenche and Val di Cogne is exceptional. Alpine meadows at 2000 m with wildlife viewing." },
+  { id:329, name:"Limone Piemonte – Colle di Tenda", country:"🇮🇹 Italy", lat:44.2, lng:7.5333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1871, breathtaking:true, forumPick:false, routeOrder:229, gmaps:"https://www.google.com/maps?q=44.2,7.5333", desc:"The Colle di Tenda is the historic crossing between Piedmont and the French Riviera. The road tunnel bypass leaves the old pass road almost entirely car-free and beautifully wild." },
+  { id:330, name:"Lago Maggiore – Cannobio", country:"🇮🇹 Italy", lat:46.0667, lng:8.6833, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Lake / Water", elevation:196, breathtaking:true, forumPick:false, routeOrder:230, gmaps:"https://www.google.com/maps?q=46.0667,8.6833", desc:"The northwestern shore of Lake Maggiore between Cannobio and Verbania is one of Italy's finest lake cycling routes — narrow cliff roads, small beaches, dramatic views across the water to Switzerland." },
+  { id:331, name:"Val Camonica Rock Engravings", country:"🇮🇹 Italy", lat:46.0333, lng:10.3167, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Village / Town", elevation:300, breathtaking:false, forumPick:true, routeOrder:231, gmaps:"https://www.google.com/maps?q=46.0333,10.3167", desc:"A UNESCO World Heritage site — 140,000 rock engravings from the Iron Age and Bronze Age scattered along a valley in the Lombard prealps. The cycling up the valley is excellent." },
+  { id:332, name:"Passo del Tonale", country:"🇮🇹 Italy", lat:46.2581, lng:10.5783, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Moderate", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1884, breathtaking:true, forumPick:false, routeOrder:232, gmaps:"https://www.google.com/maps?q=46.2581,10.5783", desc:"A gentler Alpine pass between the Ortler and Adamello groups. WWI history, Presena glacier views, and excellent cycling." },
+  { id:333, name:"Lago di Ledro", country:"🇮🇹 Italy", lat:45.8833, lng:10.7333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Medium €€", region:"Mountains", terrain:"Lake / Water", elevation:655, breathtaking:true, forumPick:false, routeOrder:233, gmaps:"https://www.google.com/maps?q=45.8833,10.7333", desc:"A small, turquoise pre-alpine lake above Lake Garda, accessible by a steep cycling climb from Riva. Almost entirely free of crowds. Very beautiful." },
+  { id:334, name:"Passo San Boldo", country:"🇮🇹 Italy", lat:46.0, lng:12.1833, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Alps", terrain:"Pass / Summit", elevation:706, breathtaking:true, forumPick:true, routeOrder:234, gmaps:"https://www.google.com/maps?q=46.0,12.1833", desc:"The most extraordinary road in the Venetian prealps — a series of six tunnels in less than 2 km, each emerging onto an external ledge above a vertical drop. Built in 1918 in 18 days. Completely unique." },
+  { id:335, name:"Cansiglio Forest", country:"🇮🇹 Italy", lat:46.0833, lng:12.4167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1200, breathtaking:true, forumPick:false, routeOrder:235, gmaps:"https://www.google.com/maps?q=46.0833,12.4167", desc:"A vast beech forest on a limestone plateau above the Veneto plain. The cycling roads through the Cansiglio are flat (for a plateau), peaceful, and beautiful." },
+  { id:336, name:"Lago di Santa Croce", country:"🇮🇹 Italy", lat:46.1167, lng:12.3333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Low €", region:"Mountains", terrain:"Lake / Water", elevation:386, breathtaking:false, forumPick:false, routeOrder:236, gmaps:"https://www.google.com/maps?q=46.1167,12.3333", desc:"A large, windy pre-alpine lake surrounded by forests and mountains. The cycling circuit is easy and the windsurfing conditions give it an energetic character." },
+  { id:337, name:"Turin", country:"🇮🇹 Italy", lat:45.0703, lng:7.6869, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:239, breathtaking:false, forumPick:true, routeOrder:237, gmaps:"https://www.google.com/maps?q=45.0703,7.6869", desc:"Italy's first capital, home of Fiat and slow food. The Turin Hills Loop (Bikepacking.com featured route) uses the forested hills east of the city for excellent gravel cycling." },
+  { id:338, name:"Superga Hill & Po River", country:"🇮🇹 Italy", lat:45.0833, lng:7.7667, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Viewpoint", elevation:672, breathtaking:true, forumPick:false, routeOrder:238, gmaps:"https://www.google.com/maps?q=45.0833,7.7667", desc:"The hilltop basilica above Turin gives a panoramic view of the Po plain with the entire arc of the Alps behind. The approach cycling road through Turin's eastern suburbs is a classic local route." },
+  { id:339, name:"Cuneo & Maritime Alps", country:"🇮🇹 Italy", lat:44.3833, lng:7.5333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Alps", terrain:"Pass / Summit", elevation:534, breathtaking:true, forumPick:true, routeOrder:239, gmaps:"https://www.google.com/maps?q=44.3833,7.5333", desc:"The Maritime Alps above Cuneo give cycling access to the routes between Italy and France that form part of the historic Nice-Turin corridor. Several passes above 2000 m, virtually no traffic." },
+  { id:340, name:"Savona & Ligurian Ridge", country:"🇮🇹 Italy", lat:44.3, lng:8.4333, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"Medium €€", region:"Mountains", terrain:"Viewpoint", elevation:1000, breathtaking:true, forumPick:true, routeOrder:240, gmaps:"https://www.google.com/maps?q=44.3,8.4333", desc:"The Ligurian ridge road (Alta Via dei Monti Liguri) above Savona runs along a crest with the sea visible to the south and the Alps to the north. Bikepacking.com features this as an extraordinary route." },
+  { id:341, name:"Alsace Wine Route", country:"🇫🇷 France", lat:48.0833, lng:7.3667, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:250, breathtaking:false, forumPick:true, routeOrder:241, gmaps:"https://www.google.com/maps?q=48.0833,7.3667", desc:"Half-timbered villages, Riesling vines, gentle hills. Cited by Pursuing Mountains as one of Europe's most enjoyable cycling days." },
+  { id:342, name:"Strasbourg", country:"🇫🇷 France", lat:48.5734, lng:7.7521, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:143, breathtaking:false, forumPick:true, routeOrder:242, gmaps:"https://www.google.com/maps?q=48.5734,7.7521", desc:"Best cycling infrastructure in France. Gothic cathedral, Rhine waterfront, half-timbered Petite France quarter." },
+  { id:343, name:"Vosges – Col de la Schlucht", country:"🇫🇷 France", lat:48.0592, lng:7.0153, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1139, breathtaking:false, forumPick:false, routeOrder:243, gmaps:"https://www.google.com/maps?q=48.0592,7.0153", desc:"Highest Vosges pass. Forested switchbacks, far cheaper than the Alps with comparable riding quality." },
+  { id:344, name:"Gorges du Verdon", country:"🇫🇷 France", lat:43.75, lng:6.35, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Gorge / Canyon", elevation:800, breathtaking:true, forumPick:true, routeOrder:244, gmaps:"https://www.google.com/maps?q=43.75,6.35", desc:"Europe's Grand Canyon — 700 m vertical walls of emerald-blue water. Unanimously referenced as France's single greatest natural spectacle." },
+  { id:345, name:"Col du Galibier", country:"🇫🇷 France", lat:45.0636, lng:6.4077, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2642, breathtaking:true, forumPick:true, routeOrder:245, gmaps:"https://www.google.com/maps?q=45.0636,6.4077", desc:"Tour de France legend, 2642 m. The summit view south into the Écrins is considered the finest mountain panorama reachable by road in Europe." },
+  { id:346, name:"Chamonix – Mer de Glace Viewpoint", country:"🇫🇷 France", lat:45.9237, lng:6.8694, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"High €€€", region:"Alps", terrain:"Viewpoint", elevation:1913, breathtaking:true, forumPick:true, routeOrder:246, gmaps:"https://www.google.com/maps?q=45.9237,6.8694", desc:"The Mer de Glace glacier with Mont Blanc (4808 m) dominating. Alps Divide riders describe 'passing by mighty glaciers.' Note: glacier retreating visibly — see it now." },
+  { id:347, name:"Annecy Lake Circuit", country:"🇫🇷 France", lat:45.8992, lng:6.1294, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Moderate", cost:"High €€€", region:"Mountains", terrain:"Lake / Water", elevation:448, breathtaking:true, forumPick:true, routeOrder:247, gmaps:"https://www.google.com/maps?q=45.8992,6.1294", desc:"Turquoise glacial lake ringed by peaks. The 41 km lakeside circuit is one of France's most iconic rides. Free lakeside bivouac spots exist." },
+  { id:348, name:"Grenoble – Vercors Plateau", country:"🇫🇷 France", lat:45.05, lng:5.5, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"Medium €€", region:"Mountains", terrain:"Viewpoint", elevation:1567, breathtaking:true, forumPick:true, routeOrder:248, gmaps:"https://www.google.com/maps?q=45.05,5.5", desc:"The Vercors massif — a vast limestone plateau with vertical cliff edges. The Grand Escape calls it 'secrets locals have guarded for generations.'" },
+  { id:349, name:"Col d'Izoard", country:"🇫🇷 France", lat:44.8208, lng:6.7347, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2361, breathtaking:true, forumPick:true, routeOrder:249, gmaps:"https://www.google.com/maps?q=44.8208,6.7347", desc:"The Casse Déserte — a lunar landscape of eroded limestone and larches just below the summit — looks like no other place on earth. Tour de France legend." },
+  { id:350, name:"Col de l'Iseran", country:"🇫🇷 France", lat:45.4167, lng:7.0333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2770, breathtaking:true, forumPick:true, routeOrder:250, gmaps:"https://www.google.com/maps?q=45.4167,7.0333", desc:"The highest paved pass in the Alps. The road above Val d'Isère enters a high arctic landscape. Every serious Alpine cyclist lists this as a defining lifetime achievement." },
+  { id:351, name:"Chartreuse Massif", country:"🇫🇷 France", lat:45.35, lng:5.75, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Medium €€", region:"Mountains", terrain:"Forest / Nature", elevation:1867, breathtaking:true, forumPick:true, routeOrder:251, gmaps:"https://www.google.com/maps?q=45.35,5.75", desc:"The original Carthusian monastery in a limestone gorge north of Grenoble. Tunnels emerging into vast cirques. Among France's best-kept cycling secrets." },
+  { id:352, name:"Lac du Mont Cenis", country:"🇫🇷 France", lat:45.2333, lng:6.9167, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:2083, breathtaking:true, forumPick:true, routeOrder:252, gmaps:"https://www.google.com/maps?q=45.2333,6.9167", desc:"High-altitude reservoir on the French–Italian border plateau at 2000 m. Forum cyclists describe it as 'the Alps at their most alien.'" },
+  { id:353, name:"Mercantour National Park", country:"🇫🇷 France", lat:44.1, lng:7.15, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:2500, breathtaking:true, forumPick:true, routeOrder:253, gmaps:"https://www.google.com/maps?q=44.1,7.15", desc:"Wild alpine park near the Italian border. Wolves, ibex, marmots. The road over Col de la Bonette (2802 m) is the highest paved road in France." },
+  { id:354, name:"Col de la Bonette", country:"🇫🇷 France", lat:44.3247, lng:6.8058, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Low €", region:"Alps", terrain:"Pass / Summit", elevation:2802, breathtaking:true, forumPick:true, routeOrder:254, gmaps:"https://www.google.com/maps?q=44.3247,6.8058", desc:"The highest paved road in France, at 2802 m. The loop road over the summit knoll is the highest asphalted point in Europe open to cyclists. Vast, remote, and staggeringly beautiful." },
+  { id:355, name:"Route des Grandes Alpes", country:"🇫🇷 France", lat:45.5, lng:6.5, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2800, breathtaking:true, forumPick:true, routeOrder:255, gmaps:"https://www.google.com/maps?q=45.5,6.5", desc:"The complete high-alpine route from Lake Geneva to Nice, crossing 17 passes. The section from Bourg-d'Oisans to Briançon via Lautaret is cited in every forum as France's finest bikepacking day." },
+  { id:356, name:"Verdon Gorge Rim Road", country:"🇫🇷 France", lat:43.75, lng:6.4, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Viewpoint", elevation:1000, breathtaking:true, forumPick:true, routeOrder:256, gmaps:"https://www.google.com/maps?q=43.75,6.4", desc:"The D952 Corniche Sublime traces the canyon rim with constant vertigo-inducing views 700 m straight down. Forum riders want to immediately climb it again after descending." },
+  { id:357, name:"Nancy", country:"🇫🇷 France", lat:48.6921, lng:6.1844, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:200, breathtaking:false, forumPick:false, routeOrder:257, gmaps:"https://www.google.com/maps?q=48.6921,6.1844", desc:"Place Stanislas — one of Europe's finest baroque squares. A quiet but genuinely beautiful city on the Route des Vins alternative." },
+  { id:358, name:"Col du Lautaret", country:"🇫🇷 France", lat:45.0333, lng:6.4, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2058, breathtaking:true, forumPick:true, routeOrder:258, gmaps:"https://www.google.com/maps?q=45.0333,6.4", desc:"A major Alpine crossroads at 2058 m with a famous botanical garden at the summit. The approach from Briançon gives views of the Écrins massif. The wildflower meadows in July are extraordinary." },
+  { id:359, name:"Bourg-d'Oisans & Alpe d'Huez", country:"🇫🇷 France", lat:45.0564, lng:6.0336, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1860, breathtaking:true, forumPick:true, routeOrder:259, gmaps:"https://www.google.com/maps?q=45.0564,6.0336", desc:"The 21 switchbacks of Alpe d'Huez are the most famous cycling climb in the Tour de France. Every bend is numbered and named after a past winner. The summit is a pilgrim destination for road cyclists." },
+  { id:360, name:"Grenoble Bastille Cable Car View", country:"🇫🇷 France", lat:45.1939, lng:5.7256, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Medium €€", region:"Mountains", terrain:"Viewpoint", elevation:476, breathtaking:true, forumPick:false, routeOrder:260, gmaps:"https://www.google.com/maps?q=45.1939,5.7256", desc:"The cable car 'bubbles' visible from everywhere in Grenoble give access to a hilltop fortress above the city. The cycling ascent up the Chartreuse side gives the same view on two wheels." },
+  { id:361, name:"Pont du Gard", country:"🇫🇷 France", lat:43.9467, lng:4.5353, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Viewpoint", elevation:65, breathtaking:true, forumPick:true, routeOrder:261, gmaps:"https://www.google.com/maps?q=43.9467,4.5353", desc:"The world's best-preserved Roman aqueduct — a three-tiered stone bridge 49 m high. The cycling from Nîmes or Avignon through the garrigue to the Pont du Gard is flat and beautiful." },
+  { id:362, name:"Gorges de l'Ardèche", country:"🇫🇷 France", lat:44.3667, lng:4.4167, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Gorge / Canyon", elevation:200, breathtaking:true, forumPick:true, routeOrder:262, gmaps:"https://www.google.com/maps?q=44.3667,4.4167", desc:"A 30 km limestone gorge with 300 m vertical walls, accessible via the gorge road or by canoe. One of southern France's most dramatic natural landscapes. Completely cycle-friendly approach." },
+  { id:363, name:"Mont Ventoux", country:"🇫🇷 France", lat:44.1744, lng:5.2786, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Mountains", terrain:"Pass / Summit", elevation:1909, breathtaking:true, forumPick:true, routeOrder:263, gmaps:"https://www.google.com/maps?q=44.1744,5.2786", desc:"'The Giant of Provence' — a lunar summit of white limestone visible for 100 km in every direction. Three approach roads, all iconic in cycling history. One of France's absolute must-ride summits." },
+  { id:364, name:"Luberon Hills", country:"🇫🇷 France", lat:43.8333, lng:5.35, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Moderate", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:720, breathtaking:true, forumPick:false, routeOrder:264, gmaps:"https://www.google.com/maps?q=43.8333,5.35", desc:"Lavender fields, hilltop perched villages (Gordes, Roussillon, Bonnieux), and quiet cycling roads through Provence. Some of France's most beautiful pastoral landscapes." },
+  { id:365, name:"Camargue Delta", country:"🇫🇷 France", lat:43.5, lng:4.5, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Lowlands", terrain:"Forest / Nature", elevation:0, breathtaking:true, forumPick:false, routeOrder:265, gmaps:"https://www.google.com/maps?q=43.5,4.5", desc:"The Rhône delta — a vast marshland of flamingos, white horses, and black bulls. The cycling is perfectly flat on gravel tracks through a completely unique Mediterranean wetland landscape." },
+  { id:366, name:"Gorges du Tarn", country:"🇫🇷 France", lat:44.3, lng:3.3, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Gorge / Canyon", elevation:500, breathtaking:true, forumPick:true, routeOrder:266, gmaps:"https://www.google.com/maps?q=44.3,3.3", desc:"The Tarn river cuts a spectacular 400 m deep gorge through the Causses limestone. The D907 cycling road through the gorge is one of southern France's great cycling routes — dramatic, peaceful, and cheap." },
+  { id:367, name:"Millau Viaduct", country:"🇫🇷 France", lat:44.0786, lng:3.0236, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Moderate", cost:"Medium €€", region:"Mountains", terrain:"Viewpoint", elevation:350, breathtaking:true, forumPick:true, routeOrder:267, gmaps:"https://www.google.com/maps?q=44.0786,3.0236", desc:"The world's tallest bridge (343 m to deck) spanning the Tarn gorge. The cycling approach on the valley roads gives views of the viaduct's extraordinary scale. One of France's modern architectural wonders." },
+  { id:368, name:"Pyrenees – Col du Tourmalet", country:"🇫🇷 France", lat:42.9083, lng:0.1458, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:2115, breathtaking:true, forumPick:true, routeOrder:268, gmaps:"https://www.google.com/maps?q=42.9083,0.1458", desc:"The 'Col de Tourmalet' is the most frequently used Alpine pass in Tour de France history. The western approach from Luz-Saint-Sauveur has 18 km of serious climbing and spectacular mountain scenery." },
+  { id:369, name:"Cirque de Gavarnie", country:"🇫🇷 France", lat:42.7333, lng:0.0167, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Viewpoint", elevation:1357, breathtaking:true, forumPick:true, routeOrder:269, gmaps:"https://www.google.com/maps?q=42.7333,0.0167", desc:"A UNESCO World Heritage glacial amphitheatre with Europe's highest waterfall (422 m). The cycling from Luz-Saint-Sauveur to Gavarnie village leads to one of the Pyrenees' most extraordinary natural wonders." },
+  { id:370, name:"Biarritz & Basque Coast", country:"🇫🇷 France", lat:43.4833, lng:-1.55, type:"viewpoint", typeLabel:"Viewpoint", emoji:"👁️", difficulty:"Easy", cost:"High €€€", region:"Coast", terrain:"Viewpoint", elevation:50, breathtaking:true, forumPick:false, routeOrder:270, gmaps:"https://www.google.com/maps?q=43.4833,-1.55", desc:"The Atlantic coast cycling between Biarritz and Saint-Jean-de-Luz is exceptional — cliff paths, surf beaches, and the distinctive Basque architecture. Good southern terminus for a full-Europe route." },
+  { id:371, name:"Dordogne Valley", country:"🇫🇷 France", lat:44.8333, lng:1.0333, type:"water", typeLabel:"River", emoji:"💧", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"River", elevation:100, breathtaking:true, forumPick:true, routeOrder:271, gmaps:"https://www.google.com/maps?q=44.8333,1.0333", desc:"The Dordogne river meanders through a valley of medieval castles, limestone cliffs, and walnut orchards. The cycling between Beynac and La Roque-Gageac gives one beautiful view after another. No effort, all reward." },
+  { id:372, name:"Puy de Dôme", country:"🇫🇷 France", lat:45.7722, lng:2.965, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1465, breathtaking:true, forumPick:true, routeOrder:272, gmaps:"https://www.google.com/maps?q=45.7722,2.965", desc:"The iconic volcanic cone of the Massif Central. The old road (now accessible by toll road bicycle path) ascends the perfect cone with panoramic views. A classic cycling summit — Tour de France history on every bend." },
+  { id:373, name:"Loire Valley Châteaux", country:"🇫🇷 France", lat:47.5, lng:1.0, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"Village / Town", elevation:70, breathtaking:true, forumPick:true, routeOrder:273, gmaps:"https://www.google.com/maps?q=47.5,1.0", desc:"The 'Garden of France' — cycling between Chambord, Chenonceau, Villandry, and Cheverny on flat river valley roads is one of Europe's great cycle-touring journeys. UNESCO World Heritage route." },
+  { id:374, name:"Burgundy Wine Route", country:"🇫🇷 France", lat:47.0, lng:4.8333, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:290, breathtaking:false, forumPick:true, routeOrder:274, gmaps:"https://www.google.com/maps?q=47.0,4.8333", desc:"The Route des Grands Crus between Dijon and Beaune passes through Gevrey-Chambertin, Vosne-Romanée, and Nuits-Saint-Georges — the greatest Pinot Noir vineyards in the world. Completely flat cycling." },
+  { id:375, name:"Col de la Croix de Fer", country:"🇫🇷 France", lat:45.2275, lng:6.2056, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2067, breathtaking:true, forumPick:true, routeOrder:275, gmaps:"https://www.google.com/maps?q=45.2275,6.2056", desc:"A classic alpine pass above Saint-Jean-de-Maurienne with panoramic views of the Belledonne and Grandes Rousses massifs. Often combined with Galibier and Télégraphe in a single legendary cycling day." },
+  { id:376, name:"Dévoluy Massif", country:"🇫🇷 France", lat:44.6667, lng:5.9167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1900, breathtaking:true, forumPick:false, routeOrder:276, gmaps:"https://www.google.com/maps?q=44.6667,5.9167", desc:"A completely unknown and utterly spectacular limestone massif north of Gap. The cycling roads through the high plateau are remote, beautiful, and virtually car-free. France's best hidden cycling secret." },
+  { id:377, name:"Gap – Sisteron Cycling Valley", country:"🇫🇷 France", lat:44.1167, lng:5.9333, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Gorge / Canyon", elevation:500, breathtaking:true, forumPick:false, routeOrder:277, gmaps:"https://www.google.com/maps?q=44.1167,5.9333", desc:"The Durance river gorge between Sisteron and Gap is a dramatic and beautiful cycling corridor through the Haute-Provence Alps. The rock citadel of Sisteron above the river is extraordinary." },
+  { id:378, name:"Col d'Aubisque", country:"🇫🇷 France", lat:42.9833, lng:-0.3369, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1709, breathtaking:true, forumPick:true, routeOrder:278, gmaps:"https://www.google.com/maps?q=42.9833,-0.3369", desc:"A classic Pyrenean Tour de France pass combining with the Soulor to give a long and spectacular ridge road with views across both Spanish and French slopes of the Pyrenees." },
+  { id:379, name:"Massif des Écrins", country:"🇫🇷 France", lat:44.9167, lng:6.3333, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Low €", region:"Alps", terrain:"Pass / Summit", elevation:2000, breathtaking:true, forumPick:true, routeOrder:279, gmaps:"https://www.google.com/maps?q=44.9167,6.3333", desc:"France's highest national park. The cycling roads into the massif from Briançon, Gap, and Bourg-d'Oisans give access to some of the most wild and beautiful alpine terrain in the entire Alps." },
+  { id:380, name:"Col du Grand Saint-Bernard", country:"🇫🇷 France", lat:45.8693, lng:7.1706, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2469, breathtaking:true, forumPick:true, routeOrder:280, gmaps:"https://www.google.com/maps?q=45.8693,7.1706", desc:"The historic monastery pass between France/Switzerland and Italy. The hospice at the top is one of the oldest in the world. The cycling ascent from Martigny is exceptional." },
+  { id:381, name:"Haute Route Verbier – Chamonix", country:"🇨🇭 Switzerland", lat:45.9, lng:7.0, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2500, breathtaking:true, forumPick:true, routeOrder:281, gmaps:"https://www.google.com/maps?q=45.9,7.0", desc:"The classic high-route between Verbier and Chamonix used by experienced skiers and bikepackers alike. The gravel tracks between Swiss and French alpine valleys are among the finest in the Alps." },
+  { id:382, name:"Belfort Gap & Vosges du Sud", country:"🇫🇷 France", lat:47.6333, lng:6.8667, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Moderate", cost:"Low €", region:"Hills", terrain:"Forest / Nature", elevation:700, breathtaking:false, forumPick:true, routeOrder:282, gmaps:"https://www.google.com/maps?q=47.6333,6.8667", desc:"The 'Trouée de Belfort' — the historic gap between the Vosges and Jura mountains. The southern Vosges cycling here is quieter and wilder than the central Vosges, with excellent gravel." },
+  { id:383, name:"Besançon & Doubs River", country:"🇫🇷 France", lat:47.2378, lng:6.0241, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"City", elevation:247, breathtaking:false, forumPick:false, routeOrder:283, gmaps:"https://www.google.com/maps?q=47.2378,6.0241", desc:"A citadel city on a horseshoe meander of the Doubs river — almost identical to Český Krumlov in form. The cycling along the Doubs is excellent. Very affordable." },
+  { id:384, name:"Jura – Crêt de la Neige", country:"🇫🇷 France", lat:46.3667, lng:5.9167, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1720, breathtaking:true, forumPick:false, routeOrder:284, gmaps:"https://www.google.com/maps?q=46.3667,5.9167", desc:"The highest point of the French Jura — a rolling plateau of meadows, pines, and cheese farms with a vast panorama of the Alps from Lake Geneva to Mont Blanc. Far cheaper than Switzerland for the same views." },
+  { id:385, name:"Franche-Comté Lakes", country:"🇫🇷 France", lat:46.6667, lng:5.9333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Lake / Water", elevation:420, breathtaking:false, forumPick:true, routeOrder:285, gmaps:"https://www.google.com/maps?q=46.6667,5.9333", desc:"The Jura plateau is dotted with glacial lakes (Lac de Clairvaux, Lac de Chalain, Lac de Vouglans). The cycling between them on forest roads is peaceful, cheap, and beautiful." },
+  { id:386, name:"Épernay & Champagne", country:"🇫🇷 France", lat:49.0406, lng:3.9597, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:75, breathtaking:false, forumPick:true, routeOrder:286, gmaps:"https://www.google.com/maps?q=49.0406,3.9597", desc:"The Avenue de Champagne in Épernay is the most expensive street in the world by wine value. The cycling through the Montagne de Reims and Côte des Blancs vineyards is excellent." },
+  { id:387, name:"Reims Cathedral", country:"🇫🇷 France", lat:49.2533, lng:4.0317, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:90, breathtaking:false, forumPick:false, routeOrder:287, gmaps:"https://www.google.com/maps?q=49.2533,4.0317", desc:"The coronation cathedral of French kings. The cycling approach from the south through the Champagne vineyards adds a beautiful prelude to one of Europe's finest Gothic buildings." },
+  { id:388, name:"Alsace Ballon d'Alsace", country:"🇫🇷 France", lat:47.8281, lng:6.8353, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1247, breathtaking:true, forumPick:true, routeOrder:288, gmaps:"https://www.google.com/maps?q=47.8281,6.8353", desc:"The southernmost Vosges pass and the first Tour de France mountain ever climbed (1905). Cycling the Ballon d'Alsace is a piece of cycling history, and the views across the Rhine plain to the Black Forest are superb." },
+  { id:389, name:"Colmar", country:"🇫🇷 France", lat:48.0794, lng:7.358, type:"city", typeLabel:"City", emoji:"🏙️", difficulty:"Easy", cost:"Medium €€", region:"Lowlands", terrain:"City", elevation:194, breathtaking:false, forumPick:true, routeOrder:289, gmaps:"https://www.google.com/maps?q=48.0794,7.358", desc:"The most beautiful town in Alsace — a dense concentration of half-timbered coloured houses along canals in the 'Little Venice' quarter. The cycling approach through vineyards from Riquewihr or Ribeauvillé is perfect." },
+  { id:390, name:"Riquewihr", country:"🇫🇷 France", lat:48.1667, lng:7.3, type:"village", typeLabel:"Village", emoji:"🏘️", difficulty:"Easy", cost:"Medium €€", region:"Hills", terrain:"Village / Town", elevation:300, breathtaking:true, forumPick:true, routeOrder:290, gmaps:"https://www.google.com/maps?q=48.1667,7.3", desc:"Possibly the most beautiful village in Alsace — completely intact medieval walls, colourful facades, and surrounding vineyards. The cycling between the villages of the wine route at harvest time is deeply beautiful." },
+  { id:391, name:"Vosges – Route des Crêtes", country:"🇫🇷 France", lat:48.0833, lng:7.1, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Pass / Summit", elevation:1200, breathtaking:true, forumPick:true, routeOrder:291, gmaps:"https://www.google.com/maps?q=48.0833,7.1", desc:"The ridge road along the crest of the Vosges from Cernay to Sainte-Marie-aux-Mines gives a continuous panorama east over the Rhine plain and west over Lorraine. Built for WWI strategic movement — now a cycling classic." },
+  { id:392, name:"Massif Central – Gorges de la Truyère", country:"🇫🇷 France", lat:44.75, lng:2.9333, type:"gorge", typeLabel:"Gorge", emoji:"🪨", difficulty:"Moderate", cost:"Low €", region:"Mountains", terrain:"Gorge / Canyon", elevation:500, breathtaking:true, forumPick:false, routeOrder:292, gmaps:"https://www.google.com/maps?q=44.75,2.9333", desc:"A vast artificial lake in the Massif Central created by the Garabit viaduct (designed by Eiffel, 1884). The cycling roads around the lake and through the gorge are exceptional and almost completely unknown." },
+  { id:393, name:"Périgueux & Périgord Noir", country:"🇫🇷 France", lat:45.1833, lng:0.7167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Easy", cost:"Low €", region:"Hills", terrain:"Forest / Nature", elevation:86, breathtaking:false, forumPick:true, routeOrder:293, gmaps:"https://www.google.com/maps?q=45.1833,0.7167", desc:"The Périgord Noir — a landscape of walnut and oak forests, prehistoric caves (Lascaux), and medieval bastide towns. The cycling through the Vézère valley is gentle, beautiful, and very cheap." },
+  { id:394, name:"Cévennes National Park", country:"🇫🇷 France", lat:44.2833, lng:3.8167, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Low €", region:"Mountains", terrain:"Forest / Nature", elevation:1567, breathtaking:true, forumPick:true, routeOrder:294, gmaps:"https://www.google.com/maps?q=44.2833,3.8167", desc:"Robert Louis Stevenson's donkey trail, now a gravel cycling route. The Cévennes highlands — granite, chestnut forests, wild rivers — are France's most rugged and remote cycling. Very cheap, very wild." },
+  { id:395, name:"Col de la Croix Fry", country:"🇫🇷 France", lat:45.8333, lng:6.4167, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1477, breathtaking:true, forumPick:false, routeOrder:295, gmaps:"https://www.google.com/maps?q=45.8333,6.4167", desc:"A beautiful pass above Manigod connecting the Aravis range to the Borne valley. The approach through the Manigod valley is pastoral and the summit gives direct views of the Mont Blanc massif." },
+  { id:396, name:"Col des Aravis", country:"🇫🇷 France", lat:45.8667, lng:6.5167, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:1498, breathtaking:true, forumPick:true, routeOrder:296, gmaps:"https://www.google.com/maps?q=45.8667,6.5167", desc:"The classic pass between Cluses and La Clusaz with the entire Mont Blanc massif in direct view from the summit. Used in the Tour de France and cited in every French Alps cycling forum." },
+  { id:397, name:"Savoie – Beaufortain Valleys", country:"🇫🇷 France", lat:45.7333, lng:6.5667, type:"nature", typeLabel:"Nature", emoji:"🌲", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Forest / Nature", elevation:1300, breathtaking:true, forumPick:true, routeOrder:297, gmaps:"https://www.google.com/maps?q=45.7333,6.5667", desc:"The Beaufortain valleys above Bourg-Saint-Maurice are among the most beautiful and least-visited in the French Alps. The cycling between Beaufort, Arêches, and Roselend is exceptional. The Roselend reservoir with the Alps behind is stunning." },
+  { id:398, name:"Lac de Roselend", country:"🇫🇷 France", lat:45.6833, lng:6.6333, type:"water", typeLabel:"Lake", emoji:"💧", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Lake / Water", elevation:1557, breathtaking:true, forumPick:true, routeOrder:298, gmaps:"https://www.google.com/maps?q=45.6833,6.6333", desc:"A reservoir at 1557 m completely surrounded by the Beaufortain Alps. The cycling road across the dam gives an unforgettable panorama. A favourite of the Tour de Savoie and consistently cited in French cycling forums." },
+  { id:399, name:"Col du Petit Saint-Bernard", country:"🇫🇷 France", lat:45.6833, lng:6.8833, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Hard", cost:"Medium €€", region:"Alps", terrain:"Pass / Summit", elevation:2188, breathtaking:true, forumPick:true, routeOrder:299, gmaps:"https://www.google.com/maps?q=45.6833,6.8833", desc:"The historic Roman road between France and the Aosta Valley in Italy. The summit plateau has a stone circle (the 'Little Stonehenge of the Alps') and views across to Gran Paradiso and Mont Blanc." },
+  { id:400, name:"Chamonix to Courmayeur – Col du Mont Blanc", country:"🇫🇷 France", lat:45.9, lng:6.95, type:"summit", typeLabel:"Summit", emoji:"⛰️", difficulty:"Extreme", cost:"High €€€", region:"Alps", terrain:"Pass / Summit", elevation:2300, breathtaking:true, forumPick:true, routeOrder:300, gmaps:"https://www.google.com/maps?q=45.9,6.95", desc:"The route between Chamonix and the Italian Aosta Valley — whether via the Col des Montets or the higher gravel routes — is the Tour du Mont Blanc corridor. Forum bikepackers unanimously call this the most beautiful 50 km in the Alps." }
+];
+
+const itinerary = [
+  { day: "1", title: "Stockholm → Hamburg", mode: "train", desc: "Early morning from Stockholm C. SJ international via Malmö and Copenhagen. ~14 hours total. Arrive Hamburg evening.", dist: "~1200 km by train" },
+  { day: "2", title: "Hamburg → Munich", mode: "train", desc: "ICE high-speed or overnight Nightjet. Arrive Munich midday — explore Englischer Garten by bike, prep gear.", dist: "~800 km by train" },
+  { day: "3", title: "Munich → Bad Tölz", mode: "bike", desc: "First bike day! Follow Isar river south on R1 cycle route. Gentle rolling terrain. First Alps views appear.", dist: "~75 km biking" },
+  { day: "4", title: "Bad Tölz → Mittenwald", mode: "bike", desc: "Climbing begins. Pass through Walchensee (stunning lake). Arrive mountain village of Mittenwald.", dist: "~60 km biking" },
+  { day: "5", title: "Mittenwald → Innsbruck", mode: "bike", desc: "Cross into Austria via Seefeld plateau. Sweeping views. Drop down into Innsbruck — rest and celebrate.", dist: "~55 km biking" },
+  { day: "6", title: "Innsbruck Rest + Achensee", mode: "bike", desc: "Optional: climb to Lake Achensee for wild swim. Or explore Innsbruck old town. Short 35km loop day.", dist: "~35 km optional" },
+  { day: "7", title: "Innsbruck → Brenner → Sterzing", mode: "summit", desc: "The BIG day. Climb Brenner Pass (1374m). Cross into Italy! Celebrate at the top, fast descent to Sterzing.", dist: "~55 km biking + 1374m climb" },
+  { day: "8", title: "Sterzing → Bolzano", mode: "bike", desc: "Glorious descent down the Eisack/Isarco valley into South Tyrol. Vineyards, castles, and Italian aperitivo.", dist: "~55 km biking" },
+  { day: "9", title: "Bolzano Rest Day", mode: "rest", desc: "Recharge in Bolzano. Visit the Ötzi Iceman museum. Bike the Vinschger trail if energy allows.", dist: "Rest / optional 30 km" },
+  { day: "10", title: "Train: Bolzano → Innsbruck → Salzburg", mode: "train", desc: "Scenic Brenner railway north. Change at Innsbruck for Salzburg. An evening in Mozart's city.", dist: "~3h by train" },
+  { day: "11", title: "Salzburg Exploration", mode: "rest", desc: "Explore Hohensalzburg fortress, Old Town UNESCO site. Bike along the Salzach river. Easy day.", dist: "~20 km city biking" },
+  { day: "12–13", title: "Salzburg → Munich → Hamburg", mode: "train", desc: "Head home: Salzburg → Munich (1.5h), connect ICE to Hamburg (6h). Evening in Hamburg.", dist: "~1000 km by train" },
+  { day: "14", title: "Hamburg → Stockholm", mode: "train", desc: "Final leg. Hamburg → Copenhagen → Malmö → Stockholm. Home by evening — epic trip complete!", dist: "~1200 km by train" },
+];
+
+// ── MAP INIT ──────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  center: [51.5, 13.0],
+  zoom: 5,
+  zoomControl: true,
+});
+
+// Topographic/terrain tile layer
+L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  maxZoom: 17,
+  attribution: '© OpenTopoMap contributors'
+}).addTo(map);
+
+// ── COLORS & ICONS ────────────────────────────────────────────────────────────
+const typeColors = {
+  train: '#2a5580',
+  bike: '#3a6b3a',
+  rest: '#c9943a',
+  summit: '#c8440a',
+};
+
+function makeIcon(type, num) {
+  const color = typeColors[type];
+  const emoji = { train: '🚂', bike: '🚲', rest: '🏙️', summit: '⛰️' }[type];
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:30px;height:30px;border-radius:50%;
+      background:${color};
+      border:2.5px solid white;
+      box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;
+      color:white;
+      font-family:'DM Mono',monospace;
+      font-size:10px;font-weight:500;
+    ">${num + 1}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -18],
+  });
+}
+
+// ── MARKERS ───────────────────────────────────────────────────────────────────
+const markers = [];
+waypoints.forEach((wp, i) => {
+  const color = typeColors[wp.type];
+  const marker = L.marker([wp.lat, wp.lng], { icon: makeIcon(wp.type, i) }).addTo(map);
+  marker.bindPopup(`
+    <div class="popup-inner">
+      <div class="popup-tag" style="color:${color}">${wp.typeLabel} · ${wp.day}</div>
+      <div class="popup-name">${wp.name}</div>
+      <div class="popup-body">${wp.desc}</div>
+      <div class="popup-dist">📍 ${wp.dist}</div>
+    </div>
+  `, { maxWidth: 240 });
+  markers.push(marker);
+});
+
+// ── ROUTES (polylines) ────────────────────────────────────────────────────────
+// Train route: Stockholm → Hamburg → Munich (dashed blue)
+const trainGo = L.polyline([
+  [59.330, 18.058],
+  [55.675, 12.565], // Copenhagen
+  [53.553, 10.007], // Hamburg
+  [48.140, 11.558], // Munich
+], { color: '#2a5580', weight: 2.5, dashArray: '8,5', opacity: 0.8 });
+
+// Bike route going south
+const bikeRoute = L.polyline([
+  [48.140, 11.558], // Munich
+  [47.913, 11.424], // Wolfratshausen
+  [47.760, 11.559], // Bad Tölz
+  [47.598, 11.390], // Walchensee
+  [47.441, 11.264], // Mittenwald
+  [47.492, 11.095], // Garmisch detour
+  [47.441, 11.264], // back Mittenwald
+  [47.380, 11.320], // Seefeld
+  [47.263, 11.401], // Innsbruck
+  [47.462, 11.709], // Achensee
+  [47.263, 11.401], // back Innsbruck
+  [47.002, 11.506], // Brenner Pass
+  [46.897, 11.434], // Sterzing
+  [46.499, 11.354], // Bolzano
+], { color: '#3a6b3a', weight: 2.5, dashArray: '0', opacity: 0.85 });
+
+// Train return: Bolzano → Innsbruck → Salzburg → Munich → Hamburg → Stockholm
+const trainReturn = L.polyline([
+  [46.499, 11.354], // Bolzano
+  [47.263, 11.401], // Innsbruck
+  [47.813, 13.045], // Salzburg
+  [48.140, 11.558], // Munich
+  [53.553, 10.007], // Hamburg
+  [55.675, 12.565], // Copenhagen
+  [59.330, 18.058], // Stockholm
+], { color: '#7a7060', weight: 2, dashArray: '5,8', opacity: 0.6 });
+
+trainGo.addTo(map);
+bikeRoute.addTo(map);
+trainReturn.addTo(map);
+
+// ── TOGGLE LAYERS ─────────────────────────────────────────────────────────────
+function toggleLayer(type) {
+  if (type === 'train') {
+    const vis = document.getElementById('chk-train').checked;
+    vis ? map.addLayer(trainGo) : map.removeLayer(trainGo);
+    vis ? map.addLayer(trainReturn) : map.removeLayer(trainReturn);
+  }
+  if (type === 'bike') {
+    const vis = document.getElementById('chk-bike').checked;
+    vis ? map.addLayer(bikeRoute) : map.removeLayer(bikeRoute);
+  }
+  if (type === 'pois') {
+    const vis = document.getElementById('chk-pois').checked;
+    vis ? map.addLayer(poiLayerGroup) : map.removeLayer(poiLayerGroup);
+  }
+}
+
+// ── POI COLORS ────────────────────────────────────────────────────────────────
+const poiColors = {
+  summit:    '#c8440a',
+  city:      '#2a5580',
+  village:   '#c9943a',
+  water:     '#3a6b3a',
+  nature:    '#3a6b3a',
+  viewpoint: '#7a7060',
+  gorge:     '#8b4513',
+  poi:       '#7a7060',
+};
+
+// ── POI MARKERS ───────────────────────────────────────────────────────────────
+const poiMarkers = [];
+const poiLayerGroup = L.layerGroup().addTo(map);
+
+function makePOIIcon(poi) {
+  const color = poiColors[poi.type] || '#7a7060';
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:20px;height:20px;border-radius:50%;
+      background:${color};
+      border:2px solid rgba(255,255,255,0.85);
+      box-shadow:0 1px 4px rgba(0,0,0,0.25);
+      display:flex;align-items:center;justify-content:center;
+      font-size:10px;
+    ">${poi.emoji}</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+    popupAnchor: [0, -13],
+  });
+}
+
+pois.forEach((poi, i) => {
+  const color = poiColors[poi.type] || '#7a7060';
+  const marker = L.marker([poi.lat, poi.lng], { icon: makePOIIcon(poi) });
+  marker.bindPopup(`
+    <div class="popup-inner">
+      <div class="popup-tag" style="color:${color}">${poi.emoji} ${poi.typeLabel} · ${poi.terrain} · ${poi.region}</div>
+      <div class="popup-name">${poi.name}</div>
+      <div class="popup-body">${poi.desc}</div>
+      <div class="popup-dist">
+        📍 ${poi.country} · ${poi.elevation > 0 ? poi.elevation + 'm' : 'lowland'}
+        ${poi.breathtaking ? ' · <span style="color:var(--accent)">✦ Breathtaking</span>' : ''}
+        ${poi.forumPick ? ' · <span style="color:var(--gold)">★ Forum Pick</span>' : ''}
+        <br><a href="${poi.gmaps}" target="_blank" style="color:var(--blue);font-family:\'DM Mono\',monospace;font-size:0.6rem;">📌 Open in Maps</a>
+      </div>
+    </div>
+  `, { maxWidth: 260 });
+  poiLayerGroup.addLayer(marker);
+  poiMarkers.push({ marker, poi });
+});
+
+// ── POI SIDEBAR ───────────────────────────────────────────────────────────────
+let activeTerrainFilter = 'all';
+let activeSpecial = { breathtaking: false, forum: false };
+let currentPOIIndex = null;
+
+function setTerrainFilter(btn) {
+  document.querySelectorAll('#terrain-filters .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeTerrainFilter = btn.dataset.filter;
+  filterPois();
+}
+
+function toggleSpecial(key) {
+  activeSpecial[key] = !activeSpecial[key];
+  const btnId = key === 'breathtaking' ? 'btn-breathtaking' : 'btn-forum';
+  document.getElementById(btnId).classList.toggle('active', activeSpecial[key]);
+  filterPois();
+}
+
+function filterPois() {
+  const query = document.getElementById('poi-search').value.toLowerCase();
+  const list = document.getElementById('poi-list');
+  list.innerHTML = '';
+  let count = 0;
+  pois.forEach((poi, i) => {
+    if (activeTerrainFilter !== 'all' && poi.type !== activeTerrainFilter) return;
+    if (activeSpecial.breathtaking && !poi.breathtaking) return;
+    if (activeSpecial.forum && !poi.forumPick) return;
+    if (query && !poi.name.toLowerCase().includes(query) &&
+        !poi.country.toLowerCase().includes(query) &&
+        !poi.region.toLowerCase().includes(query) &&
+        !poi.desc.toLowerCase().includes(query)) return;
+
+    const div = document.createElement('div');
+    div.className = 'poi-item' + (currentPOIIndex === i ? ' active' : '');
+    div.id = `poi-item-${i}`;
+    div.innerHTML = `
+      <div class="poi-emoji">${poi.emoji}</div>
+      <div class="poi-info">
+        <div class="poi-name">${poi.name}</div>
+        <div class="poi-meta">${poi.country} · ${poi.region}</div>
+        <div class="poi-badges">
+          ${poi.breathtaking ? '<span class="badge-breath">✦ Breathtaking</span>' : ''}
+          ${poi.forumPick ? '<span class="badge-star">★ Forum Pick</span>' : ''}
+          ${poi.elevation > 1000 ? `<span class="badge-star" style="background:rgba(200,68,10,0.1);color:var(--accent)">${poi.elevation}m</span>` : ''}
+        </div>
+      </div>
+      <div class="poi-terrain ptype-${poi.type}">${poi.typeLabel}</div>
+    `;
+    div.addEventListener('click', () => {
+      map.setView([poi.lat, poi.lng], 11, { animate: true });
+      poiMarkers[i].marker.openPopup();
+      currentPOIIndex = i;
+      document.querySelectorAll('.poi-item').forEach(el => el.classList.remove('active'));
+      div.classList.add('active');
+    });
+    list.appendChild(div);
+    count++;
+  });
+  document.getElementById('poi-count').textContent = count + ' place' + (count !== 1 ? 's' : '');
+}
+
+filterPois();
+
+// ── SIDEBAR CONTENT ───────────────────────────────────────────────────────────
+const wpList = document.getElementById('wp-list');
+waypoints.forEach((wp, i) => {
+  const color = typeColors[wp.type];
+  const div = document.createElement('div');
+  div.className = 'waypoint';
+  div.id = `wp-${i}`;
+  div.innerHTML = `
+    <div class="wp-num" style="background:${color};color:white">${i + 1}</div>
+    <div class="wp-info">
+      <div class="wp-name">${wp.name}</div>
+      <div class="wp-meta">${wp.day} · ${wp.country}</div>
+    </div>
+    <div class="wp-type type-${wp.type}">${wp.typeLabel}</div>
+  `;
+  div.addEventListener('click', () => {
+    map.setView([wp.lat, wp.lng], 9, { animate: true });
+    markers[i].openPopup();
+    document.querySelectorAll('.waypoint').forEach(el => el.classList.remove('active'));
+    div.classList.add('active');
+  });
+  wpList.appendChild(div);
+});
+
+const modeColors = { train: '#2a5580', bike: '#3a6b3a', rest: '#c9943a', summit: '#c8440a' };
+const modeLabel = { train: '🚂 Train', bike: '🚲 Bike', rest: '🏙️ Rest', summit: '⛰️ Summit' };
+
+const dayList = document.getElementById('day-list');
+itinerary.forEach(d => {
+  const div = document.createElement('div');
+  div.className = 'day-block';
+  div.innerHTML = `
+    <div class="day-header">
+      <div class="day-num">${d.day}</div>
+      <div class="day-title">${d.title}</div>
+      <div class="day-mode type-${d.mode}">${modeLabel[d.mode]}</div>
+    </div>
+    <div class="day-desc">${d.desc}</div>
+    <div class="day-dist">${d.dist}</div>
+  `;
+  dayList.appendChild(div);
+});
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['waypoints','itinerary','tips','pois'][i] === name);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => {
+    c.classList.toggle('active', c.id === `tab-${name}`);
+  });
+}
+</script>
+
+</body>
+</html>
