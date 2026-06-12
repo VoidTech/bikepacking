@@ -166,13 +166,6 @@ header .who{font-size:13px; color:var(--mut); display:flex; align-items:center; 
 #tooltip .t-grp{color:#7fdc8a; font-size:16px;}
 #tooltip .t-dupe{color:#ff8d7a; font-size:16px;}
 
-/* ===== carried item ===== */
-#carried{
-  position:fixed; z-index:300; pointer-events:none; display:none;
-  font-size:32px; transform:translate(-50%,-50%);
-  filter:drop-shadow(0 6px 10px rgba(0,0,0,.6));
-}
-#carried .qty{font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,.6); border-radius:7px; padding:0 5px; position:absolute; right:-10px; bottom:-6px;}
 body.carrying, body.carrying .slot{cursor:grabbing;}
 
 /* ===== zones ===== */
@@ -229,17 +222,30 @@ body.carrying, body.carrying .slot{cursor:grabbing;}
 
 
 /* ===== bike diagram ===== */
-.bike-svg{width:100%; max-width:540px; display:block; margin:0 auto 10px; overflow:visible;}
-.bike-svg .wheelframe{stroke:rgba(255,255,255,.20);}
-.bagshape{cursor:pointer;}
-.bagshape > *:not(text){transition:all .15s;}
-.bagshape.on > *:not(text){fill:var(--accent-dim); stroke:var(--accent); stroke-width:2;}
-.bagshape.on text{fill:var(--accent); font-size:15px; font-weight:600; font-family:'Space Grotesk',sans-serif;}
-.bagshape.off > *:not(text){fill:transparent; stroke:rgba(255,255,255,.28); stroke-dasharray:5 5; stroke-width:1.5;}
-.bagshape:hover > *:not(text){stroke-width:3.5;}
-.bagshape.off:hover > *:not(text){stroke:var(--accent); fill:var(--accent-dim);}
-body.carrying .bagshape > *:not(text){animation:bagpulse 1.1s infinite;}
-@keyframes bagpulse{50%{stroke-opacity:.35;}}
+.bike-svg{width:100%; max-width:560px; display:block; margin:0 auto 10px; overflow:visible;}
+.bike-svg .tire{fill:none; stroke:rgba(255,255,255,.13); stroke-width:11;}
+.bike-svg .rim{fill:none; stroke:rgba(255,255,255,.40); stroke-width:2.5;}
+.bike-svg .spokes{stroke:rgba(255,255,255,.14); stroke-width:1.4;}
+.bike-svg .hub{fill:var(--accent); opacity:.75;}
+.bike-svg .tubes{fill:none; stroke:rgba(255,255,255,.36); stroke-width:6.5; stroke-linecap:round; stroke-linejoin:round;}
+.bike-svg .tubes-hi{fill:none; stroke:rgba(255,255,255,.10); stroke-width:2; stroke-linecap:round;}
+.bike-svg .drive{fill:none; stroke:rgba(255,255,255,.30); stroke-width:2.5; stroke-linecap:round;}
+.bike-svg .chain{fill:none; stroke:rgba(255,255,255,.18); stroke-width:2; stroke-dasharray:4 3;}
+.bike-svg .ground{fill:rgba(0,0,0,.32);}
+.bike-svg .saddlepart{fill:rgba(255,255,255,.42);}
+.bagshape{cursor:pointer; transform-box:fill-box; transform-origin:center; transition:transform .15s;}
+.bagshape .bagoutline > *{transition:fill .15s, stroke .15s;}
+.bagshape.on .bagoutline > *{fill:rgba(255,255,255,.05); stroke:var(--accent); stroke-width:2;}
+.bagshape.on text{fill:#fff; font-size:15px; font-weight:600; font-family:'Space Grotesk',sans-serif;
+  paint-order:stroke; stroke:rgba(0,0,0,.65); stroke-width:3px;}
+.bagshape.off .bagoutline > *{fill:transparent; stroke:rgba(255,255,255,.28); stroke-dasharray:5 5; stroke-width:1.5;}
+.bagshape.off .bagfill, .bagshape.off .bagdetail{display:none;}
+.bagfill{fill:var(--accent); opacity:.40; transition:y .35s, height .35s;}
+.bagdetail{fill:none; stroke:var(--accent); stroke-width:1.4; opacity:.5;}
+.bagshape:hover{transform:scale(1.06);}
+.bagshape.off:hover .bagoutline > *{stroke:var(--accent); fill:var(--accent-dim);}
+.bagshape.plop{animation:bagplop .45s;}
+@keyframes bagplop{0%{transform:scale(1);}40%{transform:scale(1.18);}100%{transform:scale(1);}}
 .bag{border-radius:12px;}
 .bag.flash{animation:bagflash 1.2s;}
 @keyframes bagflash{25%{background:var(--accent-dim); box-shadow:0 0 0 3px var(--accent-dim);}}
@@ -269,6 +275,33 @@ body.carrying .bagshape > *:not(text){animation:bagpulse 1.1s infinite;}
 .quickadd::placeholder{color:var(--mut);}
 @media (hover:none){ .li-btns{opacity:1;} }
 
+/* quick-add popup picker */
+#qa-pop{position:fixed; z-index:400; display:none; width:305px; max-height:330px; overflow-y:auto;
+  background:#161c26; border:1px solid rgba(255,255,255,.14); border-radius:13px;
+  box-shadow:0 16px 44px rgba(0,0,0,.55); padding:5px;}
+.qa-head{padding:7px 11px 3px; font-size:10.5px; letter-spacing:.1em; color:var(--mut); text-transform:uppercase;}
+.qa-row{display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:9px; cursor:pointer; font-size:14px;}
+.qa-row:hover{background:rgba(255,255,255,.09);}
+.qa-row .qa-sub{margin-left:auto; color:var(--mut); font-size:11px; white-space:nowrap;}
+.qa-back{color:var(--mut); font-size:12.5px; border-bottom:1px solid rgba(255,255,255,.09);
+  border-radius:9px 9px 0 0; margin-bottom:3px; position:sticky; top:-5px; background:#161c26; z-index:1;}
+.qa-new{color:#7dd3fc;}
+.qa-empty{padding:10px 11px; color:var(--mut); font-size:13px;}
+
+/* drag & drop */
+.li-drag{cursor:grab; color:var(--mut); font-size:14px; touch-action:none; user-select:none;
+  padding:2px 1px; line-height:1; flex:none;}
+.li-drag:hover{color:var(--txt);}
+#drag-ghost{position:fixed; z-index:600; pointer-events:none; transform:translate(-50%,-130%);
+  background:#1d2430; border:1px solid rgba(255,255,255,.28); border-radius:10px; padding:7px 13px;
+  font-size:13px; color:var(--txt); box-shadow:0 14px 34px rgba(0,0,0,.55); white-space:nowrap;}
+body.dragging{cursor:grabbing !important; user-select:none;}
+body.dragging *{cursor:grabbing !important;}
+.bag.droptgt, #pile-panel.droptgt, .personal-card.droptgt{
+  outline:2px solid var(--accent, #7dd3fc); outline-offset:2px; border-radius:13px;}
+svg .bagshape.droptgt{transform:scale(1.14); filter:drop-shadow(0 0 8px var(--accent));}
+svg .bagshape.droptgt .bagoutline > *{stroke:#fff; stroke-width:3; fill:var(--accent-dim);}
+
 /* toast */
 #toast{
   position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
@@ -294,7 +327,7 @@ body.carrying .bagshape > *:not(text){animation:bagpulse 1.1s infinite;}
   <span class="who"><span class="sync-dot local" id="sync-dot"></span> <span id="h-user"></span></span>
   <button class="btn small" id="btn-switch">SWITCH</button>
   <button class="btn small" id="btn-pack">PACKING: OFF</button>
-  <button class="btn small" id="btn-view">☰ LIST</button>
+  <button class="btn small" id="btn-custom">+ CUSTOM</button>
   <button class="btn small" id="btn-export">EXPORT</button>
   <button class="btn small" id="btn-sync">SYNC</button>
 </header>
@@ -319,14 +352,9 @@ body.carrying .bagshape > *:not(text){animation:bagpulse 1.1s infinite;}
   <div class="bikes-row" style="margin-top:14px;" id="bikes-row"></div>
 
   <div class="zone-row">
-    <div class="panel" id="pile-panel">
+    <div class="panel" id="pile-panel" data-drop="pile">
       <div class="panel-title">📦 THE PILE <span class="muted">— stuff we should take, bag TBD</span></div>
       <div class="slot-grid" id="pile-grid"></div>
-    </div>
-    <div class="panel" id="trash-panel">
-      <div class="panel-title">TRASH</div>
-      <div id="trash-zone" title="Drop here to remove for good">🗑️</div>
-      <p class="muted" style="margin:6px 0 0;">not bringing it</p>
     </div>
   </div>
 
@@ -337,38 +365,12 @@ body.carrying .bagshape > *:not(text){animation:bagpulse 1.1s infinite;}
     <div id="gg-list"></div>
   </div>
 
-  <div class="panel wood" id="lib-panel">
-    <div class="panel-title">📚 ITEM LIBRARY <button class="btn small" id="btn-custom">+ CUSTOM ITEM</button></div>
-    <div class="panel" style="margin:0;">
-      <input type="text" id="lib-search" placeholder="search items…">
-      <div class="chips" id="lib-chips"></div>
-      <div class="lib-grid slot-grid" id="lib-grid"></div>
-    </div>
-  </div>
-
 </div>
 
 <!-- ===== floating bits ===== -->
 <div id="tooltip"></div>
-<datalist id="lib-datalist"></datalist>
-<div id="carried"></div>
+<div id="qa-pop"></div>
 <div id="toast"></div>
-
-<div id="detail">
-  <div class="panel">
-    <div class="d-name" id="d-name"></div>
-    <div class="qtyrow"><span>Qty:</span>
-      <button class="btn small" id="d-minus">−</button>
-      <span id="d-qty" style="font-size:24px;">1</span>
-      <button class="btn small" id="d-plus">+</button>
-    </div>
-    <div class="row" style="display:flex;gap:6px;flex-wrap:wrap;">
-      <button class="btn small" id="d-packed">PACKED ✔</button>
-      <button class="btn small" id="d-pile">→ PILE</button>
-      <button class="btn small danger" id="d-trash">TRASH</button>
-    </div>
-  </div>
-</div>
 
 <!-- sync modal -->
 <div class="modal-bg" id="m-sync">
@@ -447,8 +449,27 @@ body.carrying .bagshape > *:not(text){animation:bagpulse 1.1s infinite;}
    ================================================================= */
 
 /* ---------- ITEM LIBRARY ---------- */
-const CATS = ["Shelter","Sleep","Cook","Water","Tools","Spares","Electronics","Navigation",
+const CATS = ["Shelter","Sleep","Cook","Water","Tools","Spares","Bike Gear","Electronics","Navigation",
   "Clothing","Rain Gear","Hygiene","First Aid","Food","Docs & Money","Camp Life","Luxury","Custom"];
+
+/* Swedish category names + 2-level hierarchy for the picker */
+const CAT_SV = {
+  "Shelter":"Tält & skydd", "Sleep":"Sömn", "Cook":"Kök", "Water":"Vatten",
+  "Tools":"Verktyg", "Spares":"Reservdelar", "Bike Gear":"Cykelutrustning", "Electronics":"Elektronik",
+  "Navigation":"Navigation", "Clothing":"Kläder", "Rain Gear":"Regnkläder",
+  "Hygiene":"Hygien", "First Aid":"Första hjälpen", "Food":"Mat",
+  "Docs & Money":"Dokument & pengar", "Camp Life":"Lägerliv", "Luxury":"Lyx & nöje",
+  "Custom":"Egna prylar"
+};
+const GROUPS = [
+  {name:"Sova & läger",            emoji:"🏕️", cats:["Shelter","Sleep","Camp Life"]},
+  {name:"Kök, vatten & mat",       emoji:"🍳", cats:["Cook","Water","Food"]},
+  {name:"Cykel & verktyg",         emoji:"🔧", cats:["Tools","Spares","Bike Gear"]},
+  {name:"Kläder",                  emoji:"👕", cats:["Clothing","Rain Gear"]},
+  {name:"Elektronik & navigation", emoji:"🔋", cats:["Electronics","Navigation"]},
+  {name:"Hälsa & hygien",          emoji:"🧼", cats:["Hygiene","First Aid"]},
+  {name:"Övrigt",                  emoji:"🎒", cats:["Docs & Money","Luxury","Custom"]}
+];
 
 function I(name, emoji, cat, group){ return {name, emoji, cat, group:!!group}; }
 const LIB = {};
@@ -544,7 +565,42 @@ const LIB = {};
  I("Book","📚","Luxury"), I("Journal + Pen","✍️","Luxury"), I("Playing Cards","🃏","Luxury",1),
  I("Bluetooth Speaker","🔊","Luxury",1), I("Flask (whisky)","🥃","Luxury",1), I("Harmonica","🎵","Luxury"),
  I("Fishing Kit (mini)","🎣","Luxury"), I("Binoculars","🔭","Luxury",1), I("Hammock Chair","🪢","Luxury"),
- I("Frisbee","🥏","Luxury",1), I("Pillow (real one)","🛋️","Luxury"), I("Mascot","🧸","Luxury",1)
+ I("Frisbee","🥏","Luxury",1), I("Pillow (real one)","🛋️","Luxury"), I("Mascot","🧸","Luxury",1),
+ /* --- 2026 additions --- */
+ I("Thermos","☕","Cook",1), I("Fuel Tablets","🔥","Cook",1), I("Foldable Cup","🥤","Cook"),
+ I("Presta Adapter","🔩","Tools",1), I("Grease (mini)","🧴","Tools",1), I("Torque Key","🔧","Tools",1),
+ I("Brake Cable","🧵","Spares",1), I("Spare Straps","🎀","Spares",1), I("Spare Buckles","🔘","Spares",1),
+ I("Phone Mount","📱","Electronics"), I("Action Camera","🎥","Electronics",1), I("Mini Tripod","📐","Electronics",1),
+ I("Memory Cards","💾","Electronics"), I("Travel Adapter","🔌","Electronics"), I("SIM / eSIM","📶","Electronics"),
+ I("Long-sleeve Jersey","👕","Clothing"), I("Wind Vest","🦺","Clothing"), I("Sleepwear","😴","Clothing"),
+ I("Belt","🧷","Clothing"), I("Spare Bib Shorts","🩳","Clothing"),
+ I("Waterproof Socks","🧦","Rain Gear"), I("Clip-on Mudguard","🛡️","Rain Gear"),
+ I("Dental Floss","🦷","Hygiene"), I("Laundry Soap (travel)","🧺","Hygiene",1),
+ I("Mirror (mini)","🪞","Hygiene",1), I("After Sun","🧴","Hygiene",1),
+ I("Eye Drops","👁️","First Aid",1), I("Burn Gel","🔥","First Aid",1), I("Wound Closure Strips","🩹","First Aid",1),
+ I("Couscous","🍚","Food",1), I("Red Lentils","🫘","Food",1), I("Müsli","🥣","Food",1),
+ I("Crispbread","🍘","Food",1), I("Hot Chocolate","🍫","Food",1), I("Jam (mini)","🍓","Food",1),
+ I("Sports Drink Powder","⚡","Food"),
+ I("Driver's License","🪪","Docs & Money"), I("Vaccination Card","💉","Docs & Money"),
+ I("Ferry Tickets","⛴️","Docs & Money"), I("Camping Card","🏕️","Docs & Money"),
+ I("Firesteel","🔥","Camp Life",1), I("Rope 5 m","🪢","Camp Life",1), I("Tealight Candles","🕯️","Camp Life",1),
+ I("Kubb (mini)","🪵","Luxury",1), I("Travel Game","🎲","Luxury",1), I("Swimming Goggles","🥽","Luxury"),
+ I("Coffee Grinder (mini)","☕","Luxury",1), I("Sketchbook","🎨","Luxury"),
+ /* --- more bike stuff --- */
+ I("Chain Wear Checker","📏","Tools",1), I("Cassette Tool (mini)","🛠️","Tools",1),
+ I("Degreaser (mini)","🧴","Tools",1), I("Pressure Gauge","🌡️","Tools",1),
+ I("Steel Wire","🧵","Tools",1), I("Drivetrain Brush","🧹","Tools",1),
+ I("Shock Pump","💨","Tools",1), I("Brake Bleed Kit (mini)","💉","Tools",1),
+ I("Spare Chain","⛓️","Spares"), I("Rim Tape","🩹","Spares",1),
+ I("Tubeless Valves","📍","Spares",1), I("Shifter Battery (spare)","🔋","Spares"),
+ I("Brake Fluid (mini)","🧴","Spares",1), I("Spare Jockey Wheel","⚙️","Spares",1),
+ I("Bell","🔔","Bike Gear"), I("Bar Mirror","🪞","Bike Gear"),
+ I("Bottle Cage (extra)","🥤","Bike Gear"), I("Bar Tape","🎗️","Bike Gear",1),
+ I("Aero Bars","🏎️","Bike Gear"), I("Reflective Vest","🦺","Bike Gear"),
+ I("Spoke Reflectors","🔆","Bike Gear"), I("Kickstand (clip-on)","🦿","Bike Gear"),
+ I("Frame Protection Tape","🛡️","Bike Gear",1), I("Cycling Glasses (clear lens)","👓","Bike Gear"),
+ I("Top Tube Protector","🧷","Bike Gear"), I("Cadence/Speed Sensor","📡","Bike Gear"),
+ I("Heart Rate Strap","❤️","Bike Gear"), I("Bike Cover (light)","🛌","Bike Gear",1)
 ].forEach((it,i)=>{ LIB["i"+i] = it; });
 
 
@@ -758,8 +814,87 @@ const SV = {
 "Hammock Chair": "Hängstol",
 "Frisbee": "Frisbee",
 "Pillow (real one)": "Kudde (en riktig)",
-"Mascot": "Maskot"
+"Mascot": "Maskot",
+"Thermos": "Termos",
+"Fuel Tablets": "Bränsletabletter",
+"Foldable Cup": "Hopfällbar mugg",
+"Presta Adapter": "Presta-adapter",
+"Grease (mini)": "Fett (mini)",
+"Torque Key": "Momentnyckel",
+"Brake Cable": "Bromsvajer",
+"Spare Straps": "Extra spännband",
+"Spare Buckles": "Extra spännen",
+"Phone Mount": "Mobilhållare",
+"Action Camera": "Actionkamera",
+"Mini Tripod": "Ministativ",
+"Memory Cards": "Minneskort",
+"Travel Adapter": "Reseadapter",
+"SIM / eSIM": "SIM / eSIM",
+"Long-sleeve Jersey": "Långärmad tröja",
+"Wind Vest": "Vindväst",
+"Sleepwear": "Sovkläder",
+"Belt": "Bälte",
+"Spare Bib Shorts": "Extra bibshorts",
+"Waterproof Socks": "Vattentäta strumpor",
+"Clip-on Mudguard": "Stänkskärm (clip-on)",
+"Dental Floss": "Tandtråd",
+"Laundry Soap (travel)": "Tvättmedel (rese)",
+"Mirror (mini)": "Spegel (mini)",
+"After Sun": "After sun",
+"Eye Drops": "Ögondroppar",
+"Burn Gel": "Brännskadegel",
+"Wound Closure Strips": "Sårförslutningstejp",
+"Couscous": "Couscous",
+"Red Lentils": "Röda linser",
+"Müsli": "Müsli",
+"Crispbread": "Knäckebröd",
+"Hot Chocolate": "Varm choklad",
+"Jam (mini)": "Sylt (mini)",
+"Sports Drink Powder": "Sportdryckspulver",
+"Driver's License": "Körkort",
+"Vaccination Card": "Vaccinationskort",
+"Ferry Tickets": "Färjebiljetter",
+"Camping Card": "Campingkort",
+"Firesteel": "Eldstål",
+"Rope 5 m": "Rep 5 m",
+"Tealight Candles": "Värmeljus",
+"Kubb (mini)": "Kubb (mini)",
+"Travel Game": "Resespel",
+"Swimming Goggles": "Simglasögon",
+"Coffee Grinder (mini)": "Kaffekvarn (mini)",
+"Sketchbook": "Skissbok",
+"Chain Wear Checker": "Kedjeslitagemätare",
+"Cassette Tool (mini)": "Kassettverktyg (mini)",
+"Degreaser (mini)": "Avfettning (mini)",
+"Pressure Gauge": "Däcktrycksmätare",
+"Steel Wire": "Ståltråd",
+"Drivetrain Brush": "Kedjeborste",
+"Shock Pump": "Dämparpump",
+"Brake Bleed Kit (mini)": "Luftningskit (mini)",
+"Spare Chain": "Reservkedja",
+"Rim Tape": "Fälgtejp",
+"Tubeless Valves": "Tubeless-ventiler",
+"Shifter Battery (spare)": "Växelbatteri (reserv)",
+"Brake Fluid (mini)": "Bromsvätska (mini)",
+"Spare Jockey Wheel": "Rulltrissa (reserv)",
+"Bell": "Ringklocka",
+"Bar Mirror": "Backspegel",
+"Bottle Cage (extra)": "Flaskhållare (extra)",
+"Bar Tape": "Styrlinda",
+"Aero Bars": "Aerobågar",
+"Reflective Vest": "Reflexväst",
+"Spoke Reflectors": "Ekerreflexer",
+"Kickstand (clip-on)": "Cykelstöd (clip-on)",
+"Frame Protection Tape": "Ramskyddstejp",
+"Cycling Glasses (clear lens)": "Cykelglasögon (klara)",
+"Top Tube Protector": "Ramskydd överrör",
+"Cadence/Speed Sensor": "Kadens-/fartsensor",
+"Heart Rate Strap": "Pulsband",
+"Bike Cover (light)": "Cykelöverdrag (lätt)"
 };
+
+/* item display name = Swedish */
+function nameSv(d){ return d.sv || SV[d.name] || d.name; }
 
 /* ---------- BAG PRESETS ---------- */
 const BAG_TYPES = [
@@ -784,11 +919,8 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 
 let S = null;          // shared trip state (synced)
 let me = null;         // "r1" | "r2" (local identity)
-let carried = null;    // {id, qty, from}
 let packMode = false;
-let viewMode = "grid";
 let refocus = null;
-let filterCat = null, filterText = "";
 let fb = {app:null, ref:null, connected:false, suppress:false};
 
 function blankState(trip, date, n1, n2){
@@ -979,52 +1111,97 @@ function riderProgress(rider){
 /* ---------- RENDER ---------- */
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-function slotHTML(entry, attrs, dupes){
-  const a = Object.entries(attrs).map(([k,v])=>`data-${k}="${esc(v)}"`).join(" ");
-  if(!entry) return `<div class="slot" ${a}></div>`;
-  const d = def(entry.id);
-  const dupe = dupes && dupes.has(entry.id) && attrs.zone==="bag" ? `<span class="dupe">!</span>` : "";
-  const grp  = d.group ? `<span class="grp">🤝</span>` : "";
-  const qty  = (entry.qty||1) > 1 ? `<span class="qty">${entry.qty}</span>` : "";
-  return `<div class="slot ${entry.packed?"packed":""}" ${a} data-item="${esc(entry.id)}">
-    <span class="icon">${d.emoji}</span>${qty}${dupe}${grp}</div>`;
-}
 
 
 /* ---------- BIKE DIAGRAM ---------- */
+/* sh = outline shape, fb = fill bounds (for the rising "how full" rect),
+   dt = decorative details (straps, seams), cap = rough capacity in items */
 const BIKE_GEO = {
-  saddle:  {sh:'<rect x="170" y="80" width="76" height="34" rx="14"/>',  cx:208, cy:101},
-  frame:   {sh:'<polygon points="305,235 302,150 455,142"/>',            cx:352, cy:186},
-  toptube: {sh:'<rect x="306" y="115" width="52" height="18" rx="8"/>',  cx:332, cy:129},
-  barroll: {sh:'<rect x="448" y="74" width="92" height="32" rx="15"/>',  cx:494, cy:95},
-  stem:    {sh:'<circle cx="436" cy="112" r="14"/>',                     cx:436, cy:117},
-  forkL:   {sh:'<rect x="486" y="148" width="17" height="42" rx="6"/>',  cx:494, cy:174},
-  forkR:   {sh:'<rect x="512" y="162" width="17" height="42" rx="6"/>',  cx:520, cy:188},
-  panL:    {sh:'<rect x="82" y="182" width="54" height="74" rx="10"/>',  cx:109, cy:224},
-  panR:    {sh:'<rect x="142" y="196" width="44" height="62" rx="9"/>',  cx:164, cy:232},
-  backpack:{sh:'<rect x="250" y="28" width="46" height="40" rx="12"/>',  cx:273, cy:53}
+  saddle:  {sh:'<path d="M258 86 L198 92 Q182 95 182 103 Q182 112 198 115 L258 118 Q264 102 258 86 Z"/>',
+            dt:'<path d="M216 90 L214 116 M236 88 L235 117"/><ellipse cx="192" cy="103" rx="6" ry="10"/>',
+            fb:{x:182,y:86,w:82,h:32}, cx:224, cy:108, cap:8},
+  frame:   {sh:'<path d="M316 228 L301 140 L442 134 Z"/>',
+            dt:'<path d="M312 196 L412 152"/>',
+            fb:{x:301,y:134,w:141,h:94}, cx:352, cy:184, cap:10},
+  toptube: {sh:'<path d="M352 99 L398 97 Q404 97 404 105 L402 115 L354 117 Q348 108 352 99 Z"/>',
+            fb:{x:348,y:97,w:56,h:20}, cx:377, cy:112, cap:4},
+  barroll: {sh:'<rect x="462" y="66" width="96" height="34" rx="16"/>',
+            dt:'<ellipse cx="470" cy="83" rx="6" ry="14"/><ellipse cx="550" cy="83" rx="6" ry="14"/><path d="M492 67 L492 99 M528 67 L528 99"/>',
+            fb:{x:462,y:66,w:96,h:34}, cx:510, cy:88, cap:8},
+  stem:    {sh:'<circle cx="448" cy="100" r="14"/>',
+            dt:'<path d="M441 89 Q448 86 455 89"/>',
+            fb:{x:434,y:86,w:28,h:28}, cx:448, cy:105, cap:3},
+  forkL:   {sh:'<rect x="492" y="150" width="17" height="46" rx="7"/>',
+            dt:'<path d="M492 165 L509 165 M492 181 L509 181"/>',
+            fb:{x:492,y:150,w:17,h:46}, cx:500, cy:178, cap:3},
+  forkR:   {sh:'<rect x="518" y="164" width="17" height="46" rx="7"/>',
+            dt:'<path d="M518 179 L535 179 M518 195 L535 195"/>',
+            fb:{x:518,y:164,w:17,h:46}, cx:526, cy:192, cap:3},
+  panL:    {sh:'<path d="M80 178 Q80 172 88 172 L128 172 Q136 172 136 178 L136 244 Q136 256 122 256 L94 256 Q80 256 80 244 Z"/>',
+            dt:'<path d="M80 190 L136 190"/><rect x="100" y="176" width="16" height="8" rx="3"/>',
+            fb:{x:80,y:172,w:56,h:84}, cx:108, cy:220, cap:12},
+  panR:    {sh:'<path d="M142 192 Q142 186 149 186 L181 186 Q188 186 188 192 L188 246 Q188 256 176 256 L154 256 Q142 256 142 246 Z"/>',
+            dt:'<path d="M142 202 L188 202"/>',
+            fb:{x:142,y:186,w:46,h:70}, cx:165, cy:228, cap:12},
+  backpack:{sh:'<path d="M252 30 Q252 22 264 22 L286 22 Q298 22 298 30 L298 60 Q298 70 286 70 L264 70 Q252 70 252 60 Z"/>',
+            dt:'<path d="M262 22 Q258 40 262 70 M288 22 Q292 40 288 70"/>',
+            fb:{x:252,y:22,w:46,h:48}, cx:275, cy:51, cap:10}
 };
+
+function spokes(cx, cy, n, r1, r2){
+  let out = "";
+  for(let i=0;i<n;i++){
+    const a = (Math.PI*2/n)*i;
+    out += `<line x1="${(cx+Math.cos(a)*r1).toFixed(1)}" y1="${(cy+Math.sin(a)*r1).toFixed(1)}" x2="${(cx+Math.cos(a)*r2).toFixed(1)}" y2="${(cy+Math.sin(a)*r2).toFixed(1)}"/>`;
+  }
+  return out;
+}
 
 function bikeSVG(r){
   const shapes = BAG_TYPES.map(b=>{
     const g = BIKE_GEO[b.id]; if(!g) return "";
     const on = !!S.bikes[r].bags[b.id];
-    let cnt = "";
+    let cnt = "", fillRect = "";
     if(on){
       const used = Object.keys(bagSlots(r,b.id)).length;
       if(used) cnt = `<text x="${g.cx}" y="${g.cy}" text-anchor="middle">${used}</text>`;
+      const frac = Math.min(1, used/(g.cap||8));
+      if(frac>0){
+        const fh = Math.max(3, Math.round(g.fb.h*frac));
+        fillRect = `<rect class="bagfill" clip-path="url(#cl-${r}-${b.id})" x="${g.fb.x}" y="${g.fb.y+g.fb.h-fh}" width="${g.fb.w}" height="${fh}"/>`;
+      }
     }
-    return `<g class="bagshape ${on?"on":"off"}" data-bagshape="${b.id}" data-rider="${r}">${g.sh}${cnt}</g>`;
+    return `<g class="bagshape ${on?"on":"off"}" data-bagshape="${b.id}" data-rider="${r}">
+      <defs><clipPath id="cl-${r}-${b.id}">${g.sh}</clipPath></defs>
+      <g class="bagoutline">${g.sh}</g>${fillRect}
+      ${g.dt?`<g class="bagdetail">${g.dt}</g>`:""}${cnt}</g>`;
   }).join("");
   return `<svg class="bike-svg" viewBox="0 0 700 305">
-    <g class="wheelframe" fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="160" cy="240" r="56"/><circle cx="545" cy="240" r="56"/>
-      <path d="M160 240 L305 244 L295 135 Z"/>
-      <path d="M305 244 L478 128 L295 135"/>
-      <path d="M478 128 L545 240"/>
-      <path d="M283 128 L295 135 M283 128 L262 105 M242 105 L282 105"/>
-      <path d="M478 128 L490 100 M470 100 L510 96"/>
-    </g>${shapes}</svg>`;
+    <ellipse class="ground" cx="155" cy="297" rx="72" ry="7"/>
+    <ellipse class="ground" cx="548" cy="297" rx="72" ry="7"/>
+    <g class="spokes">${spokes(155,235,14,7,48)}${spokes(548,235,14,7,48)}</g>
+    <circle class="tire" cx="155" cy="235" r="57"/><circle class="tire" cx="548" cy="235" r="57"/>
+    <circle class="rim" cx="155" cy="235" r="49"/><circle class="rim" cx="548" cy="235" r="49"/>
+    <circle class="hub" cx="155" cy="235" r="6"/><circle class="hub" cx="548" cy="235" r="6"/>
+    <g class="drive">
+      <circle cx="320" cy="238" r="17"/>
+      <circle cx="155" cy="235" r="8"/>
+      <path d="M320 238 L338 261 M338 261 L348 261 M328 261 L338 261"/>
+    </g>
+    <g class="chain"><path d="M322 221 L158 227 M322 255 L158 243"/></g>
+    <g class="tubes">
+      <path d="M320 238 L282 122"/>
+      <path d="M282 122 L466 110"/>
+      <path d="M320 238 L478 142"/>
+      <path d="M466 110 L482 148"/>
+      <path d="M482 148 Q500 178 548 235"/>
+      <path d="M155 235 L282 122"/>
+      <path d="M155 235 L320 238"/>
+      <path d="M282 122 L276 98"/>
+      <path d="M466 110 L458 96 L448 98"/>
+    </g>
+    <g class="tubes-hi"><path d="M318 234 L284 126 M286 120 L462 109"/></g>
+    <path class="saddlepart" d="M246 92 Q276 80 308 90 Q300 98 276 98 Q254 98 246 92 Z"/>${shapes}</svg>`;
 }
 
 function bagShapeClick(r, bid){
@@ -1035,22 +1212,11 @@ function bagShapeClick(r, bid){
     toast(bt.name + " added to " + S.riders[r].name + "'s bike");
     return;
   }
-  if(carried){
-    const slots = bagSlots(r,bid), n = slotCount(slots);
-    const same = Object.values(slots).find(e=> e.id===carried.id);
-    if(same){ same.qty = (same.qty||1) + carried.qty; }
-    else{
-      for(let i=0;i<n;i++){ if(!slots[i]){ slots[i] = {id:carried.id, qty:carried.qty, packed:false}; break; } }
-    }
-    toast(def(carried.id).name + " → " + bt.name);
-    setCarried(null); commit();
-  }else{
-    const el = document.getElementById("bag-"+r+"-"+bid);
-    if(el){
-      el.scrollIntoView && el.scrollIntoView({behavior:"smooth", block:"center"});
-      el.classList.add("flash");
-      setTimeout(()=> el.classList.remove("flash"), 1300);
-    }
+  const el = document.getElementById("bag-"+r+"-"+bid);
+  if(el){
+    el.scrollIntoView && el.scrollIntoView({behavior:"smooth", block:"center"});
+    el.classList.add("flash");
+    setTimeout(()=> el.classList.remove("flash"), 1300);
   }
 }
 
@@ -1064,8 +1230,8 @@ function listRowHTML(e, attrs, dupes){
   const grp = d.group ? `<span class="li-grp">🤝</span>` : "";
   const chk = attrs.zone==="pile" ? "" : `<span class="li-chk" data-lact="pack">${e.packed?"☑":"☐"}</span>`;
   const toPile = attrs.zone==="pile" ? "" : `<button data-lact="pile" title="back to pile">↩</button>`;
-  return `<div class="li ${e.packed?"done":""}" ${a}>${chk}<span class="li-ico">${d.emoji}</span>
-    <span class="li-name">${esc(d.name)}${sv?` <i>${esc(sv)}</i>`:""}</span>
+  return `<div class="li ${e.packed?"done":""}" ${a}><span class="li-drag" title="dra för att flytta">⠿</span>${chk}<span class="li-ico">${d.emoji}</span>
+    <span class="li-name">${esc(nameSv(d))}</span>
     ${(e.qty||1)>1?`<span class="li-qty">×${e.qty}</span>`:""}${grp}${dupe}
     <span class="li-btns">
       <button data-lact="minus" title="one less">−</button>
@@ -1075,41 +1241,47 @@ function listRowHTML(e, attrs, dupes){
     </span></div>`;
 }
 function quickAddHTML(rider, bag, ph){
-  return `<input class="quickadd" list="lib-datalist" placeholder="${ph}" data-rider="${rider}" data-bag="${bag}" autocomplete="off">`;
+  return `<input class="quickadd" placeholder="${ph}" data-rider="${rider}" data-bag="${bag}" autocomplete="off">`;
 }
-function quickAdd(input){
-  const txt = input.value.trim(); if(!txt || !S) return;
-  const all = Object.assign({}, LIB, S.custom||{});
-  let id = Object.keys(all).find(k=>
-    all[k].name.toLowerCase()===txt.toLowerCase() ||
-    (all[k].sv || SV[all[k].name] || "").toLowerCase()===txt.toLowerCase());
-  if(!id){
-    id = "c"+uid();
-    S.custom[id] = {name:txt, emoji:"📦", cat:"Custom", group:false};
-    toast("new custom item: " + txt);
+function allItems(){ return Object.assign({}, LIB, S.custom||{}); }
+
+/* put one of item `id` into a bag / pile / pockets, stacking when possible */
+function addItemTo(r, bag, id){
+  if(bag==="__pile"){
+    const same = Object.values(S.pile).find(e=> e.id===id);
+    if(same){ same.qty = (same.qty||1)+1; } else S.pile[uid()] = {id, qty:1};
   }
-  const r = input.dataset.rider, bag = input.dataset.bag;
-  if(bag==="__pile"){ S.pile[uid()] = {id, qty:1}; }
-  else if(bag==="__personal"){ S.personal[r][uid()] = {id, qty:1, packed:false}; }
+  else if(bag==="__personal"){
+    const same = Object.values(S.personal[r]).find(e=> e.id===id);
+    if(same){ same.qty = (same.qty||1)+1; } else S.personal[r][uid()] = {id, qty:1, packed:false};
+  }
   else{
     const slots = bagSlots(r,bag);
     const same = Object.values(slots).find(e=> e.id===id);
     if(same){ same.qty = (same.qty||1)+1; }
     else{ const n = slotCount(slots); for(let i=0;i<n;i++){ if(!slots[i]){ slots[i]={id, qty:1, packed:false}; break; } } }
   }
-  input.value = "";
   refocus = {r: r||"", b: bag};
   commit();
 }
-function renderDatalist(){
-  const all = Object.assign({}, LIB, S.custom||{});
-  const opts = [];
-  Object.values(all).forEach(d=>{
-    opts.push(`<option value="${esc(d.name)}">`);
-    const sv = d.sv || SV[d.name];
-    if(sv) opts.push(`<option value="${esc(sv)}">`);
-  });
-  $("#lib-datalist").innerHTML = opts.join("");
+
+/* Enter in a quick-add field: exact match > first partial match > create custom */
+function quickAdd(input){
+  const txt = input.value.trim(); if(!txt || !S) return;
+  const all = allItems(), q = txt.toLowerCase();
+  let id = Object.keys(all).find(k=>
+    nameSv(all[k]).toLowerCase()===q || all[k].name.toLowerCase()===q);
+  if(!id) id = Object.keys(all).find(k=>
+    nameSv(all[k]).toLowerCase().startsWith(q) || all[k].name.toLowerCase().startsWith(q));
+  if(!id) id = Object.keys(all).find(k=>
+    nameSv(all[k]).toLowerCase().includes(q) || all[k].name.toLowerCase().includes(q));
+  if(!id){
+    id = "c"+uid();
+    S.custom[id] = {name:txt, emoji:"📦", cat:"Custom", group:false};
+    toast("ny egen pryl: " + txt);
+  }
+  input.value = "";
+  addItemTo(input.dataset.rider, input.dataset.bag, id);
 }
 
 function renderBikes(){
@@ -1120,23 +1292,12 @@ function renderBikes(){
     const bagsHtml = BAG_TYPES.filter(b=> S.bikes[r].bags[b.id]).map(b=>{
       const slots = bagSlots(r,b.id);
       const used = Object.keys(slots).length;
-      let body, cnt;
-      if(viewMode==="list"){
-        const rows = Object.entries(slots)
-          .sort((x,y)=> def(x[1].id).name.localeCompare(def(y[1].id).name))
-          .map(([i,e])=> listRowHTML(e, {zone:"bag", rider:r, bag:b.id, idx:i}, dupes)).join("");
-        body = `<div class="bag-list">${rows}${quickAddHTML(r, b.id, "+ add item…")}</div>`;
-        cnt = `${used} item${used===1?"":"s"}`;
-      }else{
-        const n = slotCount(slots);
-        let cells = "";
-        for(let i=0;i<n;i++){
-          cells += slotHTML(slots[i], {zone:"bag", rider:r, bag:b.id, idx:i}, dupes);
-        }
-        body = `<div class="slot-grid">${cells}</div>`;
-        cnt = `${used}/${n}`;
-      }
-      return `<div class="bag" id="bag-${r}-${b.id}"><div class="bag-head"><span>${b.emoji} ${b.name}</span>
+      const rows = Object.entries(slots)
+        .sort((x,y)=> nameSv(def(x[1].id)).localeCompare(nameSv(def(y[1].id)), "sv"))
+        .map(([i,e])=> listRowHTML(e, {zone:"bag", rider:r, bag:b.id, idx:i}, dupes)).join("");
+      const body = `<div class="bag-list">${rows}${quickAddHTML(r, b.id, "+ lägg till pryl…")}</div>`;
+      const cnt = `${used} item${used===1?"":"s"}`;
+      return `<div class="bag" id="bag-${r}-${b.id}" data-drop="bag" data-rider="${r}" data-bag="${b.id}"><div class="bag-head"><span>${b.emoji} ${b.name}</span>
         <span class="cnt">${cnt}</span></div>${body}</div>`;
     }).join("");
     return `<div class="panel wood bike-panel r-${r}">
@@ -1152,31 +1313,19 @@ function renderBikes(){
 }
 
 function renderPile(){
-  const entries = Object.entries(S.pile);
-  if(viewMode==="list"){
-    const rows = entries.map(([u,e])=> listRowHTML(e, {zone:"pile", uid:u})).join("");
-    $("#pile-grid").innerHTML = `<div class="bag-list" style="width:100%;">${rows}${quickAddHTML("", "__pile", "+ add to pile…")}</div>`;
-    return;
-  }
-  let cells = entries.map(([u,e])=> slotHTML(e, {zone:"pile", uid:u})).join("");
-  const empties = Math.max(BASE_SLOTS - entries.length, 2);
-  for(let i=0;i<empties;i++) cells += `<div class="slot" data-zone="pile" data-uid=""></div>`;
-  $("#pile-grid").innerHTML = cells;
+  const entries = Object.entries(S.pile)
+    .sort((x,y)=> nameSv(def(x[1].id)).localeCompare(nameSv(def(y[1].id)), "sv"));
+  const rows = entries.map(([u,e])=> listRowHTML(e, {zone:"pile", uid:u})).join("");
+  $("#pile-grid").innerHTML = `<div class="bag-list" style="width:100%;">${rows}${quickAddHTML("", "__pile", "+ lägg i högen…")}</div>`;
 }
 
 function renderPersonal(){
   $("#personal-row").innerHTML = ["r1","r2"].map(r=>{
-    const entries = Object.entries(S.personal[r]||{});
-    let cells;
-    if(viewMode==="list"){
-      const rows = entries.map(([u,e])=> listRowHTML(e, {zone:"personal", rider:r, uid:u})).join("");
-      cells = `<div class="bag-list" style="width:100%;">${rows}${quickAddHTML(r, "__personal", "+ add valuables…")}</div>`;
-    }else{
-      cells = entries.map(([u,e])=> slotHTML(e, {zone:"personal", rider:r, uid:u})).join("");
-      const empties = Math.max(5 - entries.length, 2);
-      for(let i=0;i<empties;i++) cells += `<div class="slot" data-zone="personal" data-rider="${r}" data-uid=""></div>`;
-    }
-    return `<div class="panel personal-card r-${r}">
+    const entries = Object.entries(S.personal[r]||{})
+      .sort((x,y)=> nameSv(def(x[1].id)).localeCompare(nameSv(def(y[1].id)), "sv"));
+    const rows = entries.map(([u,e])=> listRowHTML(e, {zone:"personal", rider:r, uid:u})).join("");
+    const cells = `<div class="bag-list" style="width:100%;">${rows}${quickAddHTML(r, "__personal", "+ lägg till värdesak…")}</div>`;
+    return `<div class="panel personal-card r-${r}" data-drop="personal" data-rider="${r}">
       <div class="panel-title">🔑 ${esc(S.riders[r].name).toUpperCase()}'S POCKETS
         <span class="muted">valuables &amp; on-body</span></div>
       <div class="slot-grid">${cells}</div></div>`;
@@ -1195,35 +1344,16 @@ function renderGroupGear(){
   let html = Object.entries(carriers).map(([id,who])=>{
     const d = def(id);
     const dup = dupes.has(id);
-    return `<div class="gg-line ${dup?"warn":""}"><span>${d.emoji}</span><span>${esc(d.name)}</span>
+    return `<div class="gg-line ${dup?"warn":""}"><span>${d.emoji}</span><span>${esc(nameSv(d))}</span>
       <span class="who2">${dup ? "⚠ BOTH carry this!" : "→ "+esc([...who].join(", "))}</span></div>`;
   }).join("");
   /* non-group dupes still worth flagging */
   const otherDupes = [...dupes].filter(id=> !def(id).group);
   if(otherDupes.length){
     html += `<div class="gg-line warn"><span>‼</span><span>Also doubled up:</span>
-      <span class="who2">${otherDupes.map(id=>def(id).emoji+" "+esc(def(id).name)).join(", ")}</span></div>`;
+      <span class="who2">${otherDupes.map(id=>def(id).emoji+" "+esc(nameSv(def(id)))).join(", ")}</span></div>`;
   }
   $("#gg-list").innerHTML = html || '<p class="muted" style="margin:4px;">No group gear placed yet. Items marked 🤝 in the library count as shared kit.</p>';
-}
-
-function renderLibrary(){
-  const all = Object.assign({}, LIB, S.custom||{});
-  const q = filterText.toLowerCase();
-  const cells = Object.entries(all)
-    .filter(([id,d])=> (!filterCat || d.cat===filterCat) &&
-                       (!q || d.name.toLowerCase().includes(q) || d.cat.toLowerCase().includes(q)))
-    .sort((a,b)=> a[1].name.localeCompare(b[1].name))
-    .map(([id,d])=> `<div class="slot" data-zone="lib" data-item="${esc(id)}">
-      <span class="icon">${d.emoji}</span>${d.group?'<span class="grp">🤝</span>':""}</div>`)
-    .join("");
-  $("#lib-grid").innerHTML = cells || '<p class="muted" style="margin:8px;">nothing matches…</p>';
-}
-
-function renderChips(){
-  $("#lib-chips").innerHTML =
-    `<span class="chip ${!filterCat?"on":""}" data-cat="">ALL</span>` +
-    CATS.map(c=>`<span class="chip ${filterCat===c?"on":""}" data-cat="${esc(c)}">${esc(c)}</span>`).join("");
 }
 
 function renderHeader(){
@@ -1237,34 +1367,18 @@ function renderHeader(){
   }
   $("#h-count").textContent = cd;
   $("#btn-pack").textContent = "PACKING: " + (packMode ? "ON" : "OFF");
-  $("#btn-view").textContent = viewMode==="grid" ? "☰ LIST" : "⊞ GRID";
   $("#btn-pack").classList.toggle("on", packMode);
 }
 
 function render(){
   if(!S) return;
-  renderHeader(); renderBikes(); renderPile(); renderPersonal();
-  renderGroupGear(); renderChips(); renderLibrary(); renderDatalist();
+  renderHeader(); renderBikes(); renderPile(); renderPersonal(); renderGroupGear();
   if(refocus){
     const el = document.querySelector(`.quickadd[data-rider="${refocus.r}"][data-bag="${refocus.b}"]`);
     if(el) el.focus();
     refocus = null;
   }
-}
-
-/* ---------- CARRY / PLACE MECHANICS ---------- */
-function setCarried(c){
-  carried = c;
-  document.body.classList.toggle("carrying", !!c);
-  const el = $("#carried");
-  if(!c){ el.style.display = "none"; return; }
-  const d = def(c.id);
-  el.innerHTML = d.emoji + ((c.qty||1)>1 ? `<span class="qty">${c.qty}</span>` : "");
-  el.style.display = "block";
-}
-function moveCarried(x,y){
-  const el = $("#carried");
-  el.style.left = x+"px"; el.style.top = y+"px";
+  qaReattach();
 }
 
 function entryAt(ctx){          // read entry at a slot context
@@ -1294,76 +1408,6 @@ function ctxFromEl(el){
           idx: d.idx !== undefined ? +d.idx : undefined, uid:d.uid};
 }
 
-function slotClick(ctx, el){
-  /* packing mode: tap = toggle packed */
-  if(packMode){
-    const e = entryAt(ctx);
-    if(e && (ctx.zone==="bag" || ctx.zone==="personal")){
-      e.packed = !e.packed; commit();
-    }else if(ctx.zone==="lib"){
-      toast("Turn PACKING off to grab new items");
-    }
-    return;
-  }
-  /* library = infinite source */
-  if(ctx.zone==="lib"){
-    const id = el.dataset.item;
-    if(carried && carried.id===id){ carried.qty++; setCarried(carried); }
-    else setCarried({id, qty:1, from:{zone:"lib"}});
-    return;
-  }
-  const existing = entryAt(ctx);
-  if(carried){
-    if(!existing){
-      placeAt(ctx, carried.id, carried.qty);
-      setCarried(null); commit();
-    }else if(existing.id === carried.id){
-      existing.qty = (existing.qty||1) + carried.qty;
-      setCarried(null); commit();
-    }else{
-      /* swap */
-      const old = {...existing};
-      removeAt(ctx); placeAt(ctx, carried.id, carried.qty);
-      setCarried({id:old.id, qty:old.qty||1, from:{zone:"swap"}});
-      commit();
-    }
-  }else if(existing){
-    setCarried({id:existing.id, qty:existing.qty||1, from:{...ctx}});
-    removeAt(ctx); commit();
-  }
-}
-
-function trashClick(){
-  if(carried){ toast("🗑️ " + def(carried.id).name + " — not bringing it"); setCarried(null); }
-  else toast("Carry an item here to bin it");
-}
-
-/* drop carried back somewhere sane (Esc / cancel) */
-function cancelCarry(){
-  if(!carried) return;
-  if(carried.from && carried.from.zone !== "lib"){
-    S.pile[uid()] = {id:carried.id, qty:carried.qty};   // safe landing: the pile
-    commit(); toast("returned to the pile");
-  }
-  setCarried(null);
-}
-
-/* ---------- DETAIL POPOVER ---------- */
-let detailCtx = null;
-function openDetail(ctx, x, y){
-  const e = entryAt(ctx); if(!e) return;
-  detailCtx = ctx;
-  $("#d-name").textContent = def(e.id).emoji + " " + def(e.id).name;
-  $("#d-qty").textContent = e.qty || 1;
-  $("#d-packed").classList.toggle("on", !!e.packed);
-  $("#d-packed").style.display = ctx.zone==="pile" ? "none" : "";
-  const dEl = $("#detail");
-  dEl.style.display = "block";
-  dEl.style.left = Math.min(x, innerWidth-260) + "px";
-  dEl.style.top  = Math.min(y, innerHeight-220) + "px";
-}
-function closeDetail(){ $("#detail").style.display = "none"; detailCtx = null; }
-
 /* ---------- EXPORT ---------- */
 function exportText(){
   let out = S.tripName.toUpperCase() + (S.startDate ? "  ("+S.startDate+")" : "") + "\n";
@@ -1377,27 +1421,180 @@ function exportText(){
       out += "\n[" + b.name + "]\n";
       es.forEach(e=>{
         const d = def(e.id);
-        out += "  " + (e.packed?"[x] ":"[ ] ") + d.name + ((e.qty||1)>1?" x"+e.qty:"") + (d.group?"  (group)":"") + "\n";
+        out += "  " + (e.packed?"[x] ":"[ ] ") + nameSv(d) + ((e.qty||1)>1?" x"+e.qty:"") + (d.group?"  (group)":"") + "\n";
       });
     });
     const pers = Object.values(S.personal[r]||{});
     if(pers.length){
       out += "\n[POCKETS / VALUABLES]\n";
-      pers.forEach(e=>{ out += "  " + (e.packed?"[x] ":"[ ] ") + def(e.id).name + ((e.qty||1)>1?" x"+e.qty:"") + "\n"; });
+      pers.forEach(e=>{ out += "  " + (e.packed?"[x] ":"[ ] ") + nameSv(def(e.id)) + ((e.qty||1)>1?" x"+e.qty:"") + "\n"; });
     }
     out += "\n";
   });
   const pile = Object.values(S.pile);
   if(pile.length){
     out += "## THE PILE (still undecided)\n";
-    pile.forEach(e=>{ out += "  - " + def(e.id).name + ((e.qty||1)>1?" x"+e.qty:"") + "\n"; });
+    pile.forEach(e=>{ out += "  - " + nameSv(def(e.id)) + ((e.qty||1)>1?" x"+e.qty:"") + "\n"; });
   }
   return out;
 }
 
+/* ---------- QUICK-ADD POPUP PICKER ---------- */
+let qa = null;   // {input, level:"groups"|"cats"|"items", group, cat}
+function itemsInCat(c){
+  return Object.entries(allItems()).filter(([,d])=> d.cat===c)
+    .sort((a,b)=> nameSv(a[1]).localeCompare(nameSv(b[1]), "sv"));
+}
+function qaOpen(input){
+  if(!S) return;
+  const same = qa && qa.input.dataset.rider===input.dataset.rider && qa.input.dataset.bag===input.dataset.bag;
+  if(!same) qa = {input, level:"groups", group:null, cat:null};
+  qa.input = input;
+  qaRender();
+}
+function qaClose(){ qa = null; const p=$("#qa-pop"); if(p) p.style.display="none"; }
+function qaItemRow(id, d, withCat){
+  return `<div class="qa-row" data-qa-item="${esc(id)}"><span>${d.emoji}</span><span>${esc(nameSv(d))}</span>` +
+    (d.group ? `<span>🤝</span>` : "") +
+    (withCat ? `<span class="qa-sub">${esc(CAT_SV[d.cat]||d.cat)}</span>` : "") + `</div>`;
+}
+function qaRender(){
+  if(!qa || !S) return;
+  const pop = $("#qa-pop");
+  const txt = qa.input.value.trim(), q = txt.toLowerCase();
+  let html = "";
+  if(q){
+    const hits = Object.entries(allItems()).filter(([,d])=>
+      nameSv(d).toLowerCase().includes(q) || d.name.toLowerCase().includes(q)).slice(0,30);
+    html = `<div class="qa-head">sök</div>` +
+      (hits.map(([id,d])=> qaItemRow(id,d,true)).join("") || `<div class="qa-empty">inget matchar…</div>`) +
+      `<div class="qa-row qa-new" data-qa-new="1">＋ skapa “${esc(txt)}”</div>`;
+  }else if(qa.level==="groups"){
+    html = `<div class="qa-head">välj kategori</div>` + GROUPS.map((g,i)=>{
+      const n = g.cats.reduce((s,c)=> s+itemsInCat(c).length, 0);
+      return `<div class="qa-row" data-qa-group="${i}"><span>${g.emoji}</span><span>${esc(g.name)}</span><span class="qa-sub">${n} ›</span></div>`;
+    }).join("");
+  }else if(qa.level==="cats"){
+    const g = GROUPS[qa.group];
+    html = `<div class="qa-row qa-back" data-qa-back="groups">‹ ${g.emoji} ${esc(g.name)}</div>` +
+      g.cats.map(c=>`<div class="qa-row" data-qa-cat="${esc(c)}"><span>${esc(CAT_SV[c]||c)}</span><span class="qa-sub">${itemsInCat(c).length} ›</span></div>`).join("");
+  }else{
+    html = `<div class="qa-row qa-back" data-qa-back="cats">‹ ${esc(CAT_SV[qa.cat]||qa.cat)}</div>` +
+      (itemsInCat(qa.cat).map(([id,d])=> qaItemRow(id,d,false)).join("") ||
+       `<div class="qa-empty">tomt här än…</div>`);
+  }
+  pop.innerHTML = html;
+  pop.style.display = "block";
+  const rc = qa.input.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(rc.left, innerWidth-315)) + "px";
+  if(innerHeight - rc.bottom > 250 || rc.top < 250){
+    pop.style.top = (rc.bottom+5)+"px"; pop.style.bottom = "auto";
+  }else{
+    pop.style.bottom = (innerHeight-rc.top+5)+"px"; pop.style.top = "auto";
+  }
+}
+function qaPopClick(ev){
+  const row = ev.target.closest(".qa-row"); if(!row || !qa) return;
+  if(row.hasAttribute("data-qa-group")){ qa.group = +row.getAttribute("data-qa-group"); qa.level="cats"; qaRender(); return; }
+  if(row.hasAttribute("data-qa-cat")){ qa.cat = row.getAttribute("data-qa-cat"); qa.level="items"; qaRender(); return; }
+  if(row.hasAttribute("data-qa-back")){ qa.level = row.getAttribute("data-qa-back"); qaRender(); return; }
+  if(row.hasAttribute("data-qa-new")){ quickAdd(qa.input); return; }
+  const id = row.getAttribute("data-qa-item");
+  if(id){
+    const inp = qa.input;
+    inp.value = "";
+    toast(def(id).emoji + " " + nameSv(def(id)) + " tillagd");
+    addItemTo(inp.dataset.rider, inp.dataset.bag, id);   // render() reattaches the popup
+  }
+}
+/* after re-render, re-bind the popup to the freshly rendered input */
+function qaReattach(){
+  if(!qa) return;
+  const sel = `.quickadd[data-rider="${qa.input.dataset.rider}"][data-bag="${qa.input.dataset.bag}"]`;
+  const el = document.querySelector(sel);
+  if(el){ qa.input = el; qaRender(); } else qaClose();
+}
+
+/* ---------- DRAG & DROP (pointer events — desktop + touch) ---------- */
+let drag = null;   // {ctx, ghost}
+function moveGhost(x,y){ if(drag && drag.ghost){ drag.ghost.style.left=x+"px"; drag.ghost.style.top=y+"px"; } }
+function dropTargetAt(x,y){
+  let el = null;
+  try{ el = document.elementFromPoint(x,y); }catch(e){}
+  if(!el || !el.closest) return null;
+  const bs = el.closest("[data-bagshape]");
+  if(bs){
+    const r = bs.getAttribute("data-rider"), bid = bs.getAttribute("data-bagshape");
+    if(S.bikes[r].bags[bid]) return {el:bs, zone:"bag", rider:r, bag:bid};
+    return null;
+  }
+  const c = el.closest("[data-drop]");
+  if(!c) return null;
+  return {el:c, zone:c.getAttribute("data-drop"), rider:c.getAttribute("data-rider"), bag:c.getAttribute("data-bag")};
+}
+document.addEventListener("pointerdown", ev=>{
+  const h = ev.target.closest && ev.target.closest(".li-drag");
+  if(!h) return;
+  const row = h.closest(".li"); if(!row) return;
+  const ctx = ctxFromEl(row); const e = entryAt(ctx); if(!e) return;
+  ev.preventDefault();
+  const d = def(e.id);
+  const g = document.createElement("div");
+  g.id = "drag-ghost";
+  g.textContent = d.emoji + " " + nameSv(d) + ((e.qty||1)>1 ? " ×"+e.qty : "");
+  document.body.appendChild(g);
+  drag = {ctx, ghost:g};
+  document.body.classList.add("dragging");
+  moveGhost(ev.clientX, ev.clientY);
+});
+document.addEventListener("pointermove", ev=>{
+  if(!drag) return;
+  moveGhost(ev.clientX, ev.clientY);
+  const t = dropTargetAt(ev.clientX, ev.clientY);
+  $$(".droptgt").forEach(el=> el.classList.remove("droptgt"));
+  if(t) t.el.classList.add("droptgt");
+});
+function endDrag(ev, doDrop){
+  if(!drag) return;
+  $$(".droptgt").forEach(el=> el.classList.remove("droptgt"));
+  if(drag.ghost) drag.ghost.remove();
+  document.body.classList.remove("dragging");
+  const dr = drag; drag = null;
+  if(!doDrop || !ev) return;
+  const t = dropTargetAt(ev.clientX, ev.clientY);
+  if(!t) return;
+  /* dropping where it already lives = no-op */
+  if(t.zone==="bag" && dr.ctx.zone==="bag" && t.rider===dr.ctx.rider && t.bag===dr.ctx.bag) return;
+  if(t.zone==="personal" && dr.ctx.zone==="personal" && t.rider===dr.ctx.rider) return;
+  if(t.zone==="pile" && dr.ctx.zone==="pile") return;
+  const e = entryAt(dr.ctx); if(!e) return;
+  removeAt(dr.ctx);
+  if(t.zone==="pile"){
+    const same = Object.values(S.pile).find(x=> x.id===e.id);
+    if(same){ same.qty = (same.qty||1)+(e.qty||1); } else S.pile[uid()] = {id:e.id, qty:e.qty||1};
+  }else if(t.zone==="personal"){
+    const same = Object.values(S.personal[t.rider]).find(x=> x.id===e.id);
+    if(same){ same.qty = (same.qty||1)+(e.qty||1); }
+    else S.personal[t.rider][uid()] = {id:e.id, qty:e.qty||1, packed:!!e.packed};
+  }else{
+    const slots = bagSlots(t.rider, t.bag);
+    const same = Object.values(slots).find(x=> x.id===e.id);
+    if(same){ same.qty = (same.qty||1)+(e.qty||1); }
+    else{ const n = slotCount(slots); for(let i=0;i<n;i++){ if(!slots[i]){ slots[i] = {id:e.id, qty:e.qty||1, packed:!!e.packed}; break; } } }
+  }
+  toast(def(e.id).emoji + " " + nameSv(def(e.id)) + " flyttad");
+  commit();
+  /* plop! the receiving bag bounces (render is synchronous, so query the fresh DOM) */
+  if(t.zone==="bag"){
+    const el = document.querySelector(`.bagshape[data-rider="${t.rider}"][data-bagshape="${t.bag}"]`);
+    if(el){ el.classList.add("plop"); setTimeout(()=> el.classList.remove("plop"), 500); }
+  }
+}
+document.addEventListener("pointerup", ev=> endDrag(ev, true));
+document.addEventListener("pointercancel", ev=> endDrag(ev, false));
+
 /* ---------- EVENTS ---------- */
 document.addEventListener("mousemove", ev=>{
-  if(carried) moveCarried(ev.clientX, ev.clientY);
   /* tooltip */
   const t = $("#tooltip");
   const bs = ev.target.closest && ev.target.closest("[data-bagshape]");
@@ -1409,10 +1606,10 @@ document.addEventListener("mousemove", ev=>{
     if(on){
       const es = Object.values(bagSlots(r,bid));
       const pk = es.filter(e=>e.packed).length;
-      inner += `<div class="t-extra">${es.length} items · ${pk} packed</div>`;
+      const cap = (BIKE_GEO[bid]&&BIKE_GEO[bid].cap)||8;
+      inner += `<div class="t-extra">${es.length} items · ${pk} packed · ${Math.min(100,Math.round(es.length/cap*100))}% fullt</div>`;
       if(es.length) inner += `<div class="t-extra">${es.slice(0,9).map(e=>def(e.id).emoji).join(" ")}</div>`;
-      inner += carried ? `<div class="t-grp">drop to stash here</div>`
-             : es.length ? `<div class="t-extra">click to jump to bag</div>` : "";
+      inner += es.length ? `<div class="t-extra">click to jump to bag</div>` : "";
     }else{
       inner += `<div class="t-grp">click to add this bag</div>`;
     }
@@ -1421,25 +1618,20 @@ document.addEventListener("mousemove", ev=>{
     t.style.top  = Math.min(ev.clientY+14, innerHeight-130)+"px";
     return;
   }
-  const slot = ev.target.closest && ev.target.closest(".slot[data-item], .slot[data-zone], .li[data-zone]");
+  const row = ev.target.closest && ev.target.closest(".li[data-zone]");
   let entry = null, id = null;
-  if(slot){
-    const ctx = ctxFromEl(slot);
-    if(ctx.zone==="lib") id = slot.dataset.item;
-    else { entry = entryAt(ctx); id = entry && entry.id; }
+  if(row){
+    entry = entryAt(ctxFromEl(row)); id = entry && entry.id;
   }
   if(id){
     const d = def(id);
     const dupes = dupeIds();
-    const sv = d.sv || SV[d.name];
-    t.innerHTML = `<div>${d.emoji} ${esc(d.name)}</div>` +
-      (sv ? `<div class="t-sv">🇸🇪 ${esc(sv)}</div>` : "") +
-      `<div class="t-cat">${esc(d.cat)}</div>` +
+    t.innerHTML = `<div>${d.emoji} ${esc(nameSv(d))}</div>` +
+      `<div class="t-cat">${esc(CAT_SV[d.cat]||d.cat)}</div>` +
       (d.group ? `<div class="t-grp">🤝 group gear</div>` : "") +
-      (entry && (entry.qty||1)>1 ? `<div class="t-extra">qty: ${entry.qty}</div>` : "") +
-      (entry && entry.packed ? `<div class="t-grp">✔ packed</div>` : "") +
-      (entry && dupes.has(id) ? `<div class="t-dupe">! also on the other bike</div>` : "") +
-      (!entry ? `<div class="t-extra">click to grab</div>` : "");
+      ((entry.qty||1)>1 ? `<div class="t-extra">qty: ${entry.qty}</div>` : "") +
+      (entry.packed ? `<div class="t-grp">✔ packed</div>` : "") +
+      (dupes.has(id) ? `<div class="t-dupe">! also on the other bike</div>` : "");
     t.style.display = "block";
     t.style.left = Math.min(ev.clientX+18, innerWidth-270)+"px";
     t.style.top  = Math.min(ev.clientY+14, innerHeight-110)+"px";
@@ -1447,11 +1639,11 @@ document.addEventListener("mousemove", ev=>{
 });
 
 document.addEventListener("click", ev=>{
-  if(carried) moveCarried(ev.clientX, ev.clientY);   // touch devices
-  /* detail closes on outside click */
-  if(detailCtx && !ev.target.closest("#detail")) closeDetail();
+  /* quick-add popup: close when clicking elsewhere */
+  if(qa && !ev.target.closest("#qa-pop") && !ev.target.classList.contains("quickadd")) qaClose();
 
-  if(ev.target.closest("#trash-zone")){ trashClick(); return; }
+  const pop = ev.target.closest && ev.target.closest("#qa-pop");
+  if(pop){ qaPopClick(ev); return; }
 
   const bs = ev.target.closest && ev.target.closest("[data-bagshape]");
   if(bs){ bagShapeClick(bs.getAttribute("data-rider"), bs.getAttribute("data-bagshape")); return; }
@@ -1465,63 +1657,29 @@ document.addEventListener("click", ev=>{
     else if(act==="plus"){ e.qty = (e.qty||1)+1; }
     else if(act==="minus"){ if((e.qty||1)>1) e.qty--; else return; }
     else if(act==="pile"){ S.pile[uid()] = {id:e.id, qty:e.qty||1}; removeAt(ctx); }
-    else if(act==="del"){ toast("🗑️ " + def(e.id).name + " binned"); removeAt(ctx); }
+    else if(act==="del"){ toast("🗑️ " + nameSv(def(e.id)) + " borttagen"); removeAt(ctx); }
     commit(); return;
   }
 
   const eb = ev.target.closest("[data-editbags]");
   if(eb){ openBagEditor(eb.dataset.editbags); return; }
-
-  const chip = ev.target.closest(".chip");
-  if(chip){ filterCat = chip.dataset.cat || null; renderChips(); renderLibrary(); return; }
-
-  const slot = ev.target.closest(".slot[data-zone]");
-  if(slot){ slotClick(ctxFromEl(slot), slot); return; }
-});
-
-document.addEventListener("contextmenu", ev=>{
-  const slot = ev.target.closest && ev.target.closest(".slot[data-zone]");
-  if(!slot) return;
-  ev.preventDefault();
-  const ctx = ctxFromEl(slot);
-  if(carried){
-    /* right-click: place ONE from the stack (very Minecraft) */
-    if(ctx.zone==="lib") return;
-    const existing = entryAt(ctx);
-    if(!existing){ placeAt(ctx, carried.id, 1); }
-    else if(existing.id===carried.id){ existing.qty = (existing.qty||1)+1; }
-    else return;
-    carried.qty--;
-    if(carried.qty<=0) setCarried(null); else setCarried(carried);
-    commit();
-  }else if(entryAt(ctx)){
-    openDetail(ctx, ev.clientX, ev.clientY);
-  }
 });
 
 document.addEventListener("keydown", ev=>{
-  if(ev.key==="Escape"){ cancelCarry(); closeDetail(); }
+  if(ev.key==="Escape"){ qaClose(); endDrag(null, false); }
   if(ev.key==="Enter" && ev.target.classList && ev.target.classList.contains("quickadd")){
     ev.preventDefault(); quickAdd(ev.target);
   }
 });
-document.addEventListener("change", ev=>{
-  if(ev.target.classList && ev.target.classList.contains("quickadd")) quickAdd(ev.target);
+document.addEventListener("focusin", ev=>{
+  if(ev.target.classList && ev.target.classList.contains("quickadd")) qaOpen(ev.target);
+});
+document.addEventListener("input", ev=>{
+  if(ev.target.classList && ev.target.classList.contains("quickadd") && qa) qaRender();
 });
 
-/* detail buttons */
-$("#d-plus").onclick = ()=>{ const e = entryAt(detailCtx); if(e){ e.qty=(e.qty||1)+1; $("#d-qty").textContent=e.qty; commit(); } };
-$("#d-minus").onclick = ()=>{ const e = entryAt(detailCtx); if(e && (e.qty||1)>1){ e.qty--; $("#d-qty").textContent=e.qty; commit(); } };
-$("#d-packed").onclick = ()=>{ const e = entryAt(detailCtx); if(e){ e.packed=!e.packed; $("#d-packed").classList.toggle("on",!!e.packed); commit(); } };
-$("#d-pile").onclick = ()=>{ const e = entryAt(detailCtx); if(e){ S.pile[uid()]={id:e.id, qty:e.qty||1}; removeAt(detailCtx); closeDetail(); commit(); } };
-$("#d-trash").onclick = ()=>{ const e = entryAt(detailCtx); if(e){ toast("🗑️ "+def(e.id).name+" binned"); removeAt(detailCtx); closeDetail(); commit(); } };
-
 /* header buttons */
-$("#btn-view").onclick  = ()=>{
-  viewMode = viewMode==="grid" ? "list" : "grid";
-  store.set("bp_view", viewMode); cancelCarry(); render();
-};
-$("#btn-pack").onclick  = ()=>{ packMode = !packMode; cancelCarry(); renderHeader(); toast(packMode ? "PACKING MODE: tap items as they go in the bag" : "packing mode off"); };
+$("#btn-pack").onclick  = ()=>{ packMode = !packMode; renderHeader(); toast(packMode ? "PACKING MODE: tap items as they go in the bag" : "packing mode off"); };
 $("#btn-switch").onclick= ()=>{ me=null; store.del(LS.me); showIdentity(); };
 $("#btn-export").onclick= ()=>{ $("#export-text").value = exportText(); $("#m-export").classList.add("show"); };
 $("#export-copy").onclick=()=>{ navigator.clipboard.writeText($("#export-text").value).then(()=>toast("copied!")); };
@@ -1585,9 +1743,6 @@ $("#bags-list").addEventListener("change", ev=>{
 });
 $("#m-bags-close").onclick = ()=>$("#m-bags").classList.remove("show");
 
-/* library search */
-$("#lib-search").addEventListener("input", ev=>{ filterText = ev.target.value; renderLibrary(); });
-
 /* close modals on backdrop click */
 $$(".modal-bg").forEach(m=> m.addEventListener("click", ev=>{ if(ev.target===m) m.classList.remove("show"); }));
 
@@ -1618,7 +1773,6 @@ $("#id-r2").onclick = ()=>{ me="r2"; store.set(LS.me,"r2"); showMain(); };
     saveLocal();
   }
   me = store.get(LS.me);
-  viewMode = store.get("bp_view") === "list" ? "list" : "grid";
   updateSyncDot();
   if(!me){ showIdentity(); } else { showMain(); }
   /* auto-connect firebase (saved settings win over baked-in defaults) */
