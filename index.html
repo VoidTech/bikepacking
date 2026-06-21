@@ -1,1795 +1,530 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Bikepack Inventory</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Packlistan · Eric & Wojtek</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=VT323&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
 :root{
-  --bg:#0c1016; --card:#151b24; --card2:#0f141c; --line:rgba(255,255,255,.08);
-  --txt:#e8eef4; --mut:#8b97a6;
-  --r1:#2dd4bf; --r1-dim:rgba(45,212,191,.14);
-  --r2:#fbbf24; --r2-dim:rgba(251,191,36,.14);
-  --green:#34d399; --red:#f87171; --gold:#fbbf24;
-  --tooltip-bg:rgba(18,2,24,.95); --tooltip-border:#4a0a8a;
+  --ink:#1b2430; --ink-2:#2a3645;
+  --paper:#e9ecee; --card:#ffffff; --line:#d7dce1;
+  --amber:#e2872f; --amber-deep:#bf6b1c;
+  --green:#4d8a51; --green-soft:#e2efe1;
+  --muted:#697585; --text:#222b34;
+  --maxw:660px;
 }
-*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-html,body{margin:0;padding:0;}
-body{
-  font-family:'Inter',system-ui,sans-serif; font-size:15px; color:var(--txt);
-  background:
-    radial-gradient(1100px 600px at 80% -10%, rgba(45,212,191,.08), transparent 60%),
-    radial-gradient(900px 600px at -10% 110%, rgba(251,191,36,.06), transparent 60%),
-    var(--bg);
-  background-attachment:fixed;
-  min-height:100vh; padding-bottom:140px;
-  user-select:none;
-}
-h1,h2,h3,.pix{font-family:'Space Grotesk',sans-serif;}
-button{font-family:'Inter',sans-serif; cursor:pointer;}
-input,textarea,select{font-family:'Inter',sans-serif; font-size:15px;}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0; background:var(--paper); color:var(--text);
+  font-family:"Jost",system-ui,sans-serif; font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased}
+.mono{font-family:"Space Mono",ui-monospace,monospace}
 
-/* ===== cards ===== */
-.panel{
-  background:var(--card);
-  border:1px solid var(--line);
-  border-radius:18px;
-  box-shadow:0 8px 24px rgba(0,0,0,.35);
-  padding:18px; margin:14px auto; max-width:1280px;
-}
-.panel-title{
-  font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600;
-  letter-spacing:.05em; color:var(--txt);
-  margin:0 0 14px 2px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-}
-.wood{background:var(--card);}
-.wood .panel{background:transparent; border:none; box-shadow:none; padding:0; margin:0;}
-.wood .panel-title{color:var(--txt);}
+/* hero */
+.hero{position:relative; background:var(--ink); color:#eef2f5; overflow:hidden}
+.hero-bg{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+.hero-inner{position:relative; z-index:2; max-width:var(--maxw); margin:0 auto; padding:24px 16px 20px}
+.eyebrow{font-family:"Space Mono",monospace; font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:#9fb0c0; margin:0 0 9px}
+.title{font-family:"Jost",sans-serif; font-weight:600; letter-spacing:-.01em; font-size:clamp(32px,9vw,48px); line-height:.95; margin:0; color:#fff}
+.title .stroke{color:var(--amber)}
+.route{font-family:"Space Mono",monospace; font-size:12px; letter-spacing:.04em; color:#c4d0db; margin:13px 0 0; display:flex; flex-wrap:wrap; gap:5px; align-items:center}
+.route b{color:#fff; font-weight:600}
+.chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:16px}
+.mark{display:block; width:100%; max-width:320px; height:auto; margin:16px 0 4px}
+.chip{font-family:"Space Mono",monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#dbe3ea; border:1px solid rgba(255,255,255,.22); border-radius:100px; padding:4px 10px}
+.chip.accent{border-color:var(--amber); color:#f5c98e}
 
-/* rider accents */
-.r-r1{--accent:var(--r1); --accent-dim:var(--r1-dim);}
-.r-r2{--accent:var(--r2); --accent-dim:var(--r2-dim);}
-.bike-panel{border-top:3px solid var(--accent); }
-.bike-panel .panel-title{color:var(--accent);}
-.personal-card{border-top:3px solid var(--accent);}
-.personal-card .panel-title{color:var(--accent);}
+/* sticky header: progress + tabs + add */
+.head{position:sticky; top:0; z-index:30; background:rgba(233,236,238,.95); backdrop-filter:blur(10px); border-bottom:1px solid var(--line)}
+.bar-line{height:4px; background:#cdd3d9}
+.bar-fill{height:100%; width:0%; background:linear-gradient(90deg,var(--amber),var(--green)); transition:width .35s ease}
+@media (prefers-reduced-motion:reduce){.bar-fill{transition:none}}
 
-/* ===== slots ===== */
-.slot-grid{display:flex; flex-wrap:wrap; gap:6px;}
-.slot{
-  width:52px; height:52px; position:relative;
-  background:rgba(255,255,255,.045);
-  border:1px solid var(--line);
-  border-radius:13px;
-  display:flex; align-items:center; justify-content:center;
-  font-size:27px; cursor:pointer; line-height:1;
-  transition:border-color .15s, background .15s, transform .12s;
-}
-.slot:hover{border-color:var(--accent,rgba(255,255,255,.35)); background:var(--accent-dim,rgba(255,255,255,.09)); transform:translateY(-2px);}
-.slot[data-item]{background:rgba(255,255,255,.08); border-color:rgba(255,255,255,.16);}
-.slot.drop-ok{background:rgba(52,211,153,.2);}
-.slot .qty{
-  position:absolute; right:4px; bottom:2px;
-  font-size:11px; font-weight:600; color:#fff;
-  background:rgba(0,0,0,.55); border-radius:7px; padding:0 5px;
-  pointer-events:none;
-}
-.slot .dupe{
-  position:absolute; left:-5px; top:-5px; pointer-events:none;
-  width:16px; height:16px; border-radius:50%;
-  background:var(--red); color:#1b0606; font-size:11px; font-weight:700;
-  display:flex; align-items:center; justify-content:center;
-}
-.slot .grp{position:absolute; right:-3px; top:-5px; font-size:11px; pointer-events:none; filter:saturate(.8);}
-.slot.packed::after{
-  content:"✓"; position:absolute; left:4px; bottom:1px;
-  color:var(--green); font-size:13px; font-weight:700; pointer-events:none;
-}
-.slot.packed .icon{opacity:.4; filter:grayscale(.7);}
-.slot .icon{pointer-events:none;}
+.tabs{display:flex; gap:4px; overflow-x:auto; scrollbar-width:none; padding:8px 12px 0; max-width:var(--maxw); margin:0 auto}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none; display:inline-flex; align-items:center; gap:8px; border:none; background:none; cursor:pointer;
+  font-family:"Space Mono",monospace; font-size:12.5px; letter-spacing:.02em; color:var(--muted);
+  padding:9px 11px 12px; position:relative; white-space:nowrap}
+.tab .t-badge{font-size:10px; min-width:17px; height:17px; padding:0 4px; border-radius:9px; background:#d2d8de; color:var(--ink-2);
+  display:inline-flex; align-items:center; justify-content:center; line-height:1}
+.tab.active{color:var(--ink)}
+.tab.active .t-badge{background:var(--amber); color:#fff}
+.tab.done .t-badge{background:var(--green); color:#fff}
+.tab.active::after{content:""; position:absolute; left:8px; right:8px; bottom:0; height:2.5px; background:var(--amber); border-radius:2px}
+.tab:focus-visible{outline:2px solid var(--amber); outline-offset:-3px; border-radius:6px}
 
-/* ===== bags ===== */
-.bag{margin:14px 0;}
-.bag-head{
-  display:flex; align-items:center; gap:8px; margin-bottom:7px;
-  font-size:11px; font-weight:600; letter-spacing:.12em; color:var(--mut);
-}
-.bag-head .cnt{margin-left:auto; font-size:11px; font-weight:500; color:var(--mut); letter-spacing:0;}
-.bike-panel{flex:1 1 460px; min-width:320px;}
-.bikes-row{display:flex; gap:14px; max-width:1280px; margin:0 auto; flex-wrap:wrap;}
-.bikes-row .panel{margin:0;}
+.addwrap{max-width:var(--maxw); margin:0 auto; padding:9px 16px 11px; position:relative; border-top:1px solid var(--line)}
+.addbox{display:flex; align-items:center; gap:9px}
+.plus{font-family:"Jost",sans-serif; font-weight:600; font-size:21px; color:var(--amber-deep); line-height:1; width:16px; text-align:center; flex:none}
+#add{flex:1; min-width:0; font:inherit; font-size:15px; border:none; background:none; padding:5px 2px; color:var(--text)}
+#add::placeholder{color:#9aa6b2}
+#add:focus{outline:none}
+.modebtn{flex:none; font-family:"Space Mono",monospace; font-size:11.5px; letter-spacing:.03em; color:var(--muted); background:#fff; border:1px solid var(--line); border-radius:100px; padding:6px 11px; cursor:pointer; white-space:nowrap}
+.modebtn.on{background:#fbeede; border-color:var(--amber); color:var(--amber-deep)}
+.modebtn:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+.sugg{position:absolute; left:16px; right:16px; top:calc(100% - 2px); background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 30px -12px rgba(20,30,45,.3); overflow:hidden; display:none; z-index:40}
+.sugg.open{display:block}
+.sugg-item{padding:11px 14px; font-size:14.5px; cursor:pointer; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f0f2f4}
+.sugg-item:last-child{border-bottom:none}
+.sugg-item.active,.sugg-item:hover{background:#fbeede}
+.sugg-item .si-plus{font-family:"Space Mono",monospace; color:var(--amber-deep); font-size:13px; flex:none}
+.sugg-item .si-new{margin-left:auto; font-family:"Space Mono",monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
 
-/* progress bar */
-.prog{height:10px; background:rgba(255,255,255,.07); border-radius:999px; position:relative; margin:2px 0 6px 0; overflow:hidden;}
-.prog .fill{height:100%; background:var(--accent,var(--green)); border-radius:999px; width:0%; transition:width .3s;}
-.prog .lbl{position:absolute; inset:0;}
-.prog .lbl{display:none;}
-.prog-lbl{font-size:12px; color:var(--mut); margin:0 0 10px; display:block;}
+/* swipe viewport */
+.viewport{overflow-x:auto; overflow-y:visible; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none}
+.viewport::-webkit-scrollbar{display:none}
+.track{display:flex; align-items:flex-start}
+.panel{flex:0 0 100%; scroll-snap-align:start; min-width:0}
+.panel-inner{max-width:var(--maxw); margin:0 auto; padding:2px 16px 0}
 
-/* ===== header ===== */
-header{
-  background:rgba(12,16,22,.75);
-  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-  border-bottom:1px solid var(--line);
-  padding:12px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-  position:sticky; top:0; z-index:50;
-}
-header h1{font-size:17px; font-weight:700; letter-spacing:.04em; color:var(--txt); margin:0;}
-header .countdown{font-size:13px; font-weight:600; color:var(--gold);}
-header .spacer{flex:1;}
-header .who{font-size:13px; color:var(--mut); display:flex; align-items:center; gap:7px;}
-.btn{
-  background:rgba(255,255,255,.06); color:var(--txt);
-  border:1px solid var(--line); border-radius:11px;
-  font-size:11px; font-weight:600; letter-spacing:.08em; padding:8px 13px;
-  transition:background .15s, border-color .15s, transform .1s;
-}
-.btn:hover{background:rgba(255,255,255,.12); border-color:rgba(255,255,255,.25);}
-.btn:active{transform:scale(.96);}
-.btn.on{background:var(--green); color:#06281c; border-color:transparent;}
-.btn.danger{background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.4); color:#fda4a4;}
-.btn.small{font-size:10px; padding:6px 10px;}
+/* rows — compact grouped list */
+.list{background:var(--card); border:1px solid var(--line); border-radius:11px; overflow:hidden; margin-top:10px}
+.item{display:flex; align-items:flex-start; gap:11px; padding:9px 13px; border-bottom:1px solid #eef1f3; will-change:transform; background:var(--card)}
+.item:last-child{border-bottom:none}
+.item.done{background:#f4f6f7}
+.item.done .it-text{color:var(--muted)}
+.cbox{flex:none; width:20px; height:20px; margin-top:1px; border-radius:6px; border:2px solid #c2c9d0; background:#fff; cursor:pointer; position:relative; transition:.15s; appearance:none}
+.cbox:hover{border-color:var(--green)}
+.cbox:checked{background:var(--green); border-color:var(--green)}
+.cbox:checked::after{content:""; position:absolute; left:5.5px; top:2px; width:5px; height:9.5px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(42deg)}
+.cbox:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+.it-text{flex:1; min-width:0; font-size:14.5px; line-height:1.35; padding-top:1px}
+.del{flex:none; width:24px; height:24px; border:none; background:none; color:#c8cfd5; cursor:pointer; font-size:16px; line-height:1; border-radius:6px; opacity:.7}
+.del:hover{color:#b04a4a; background:#f7eaea; opacity:1}
+.del:focus-visible{outline:2px solid var(--amber); outline-offset:2px; opacity:1}
+.empty{text-align:center; color:var(--muted); font-family:"Space Mono",monospace; font-size:12.5px; padding:30px 18px; line-height:1.6}
 
-/* ===== library ===== */
-#lib-search{
-  width:100%; max-width:420px; padding:10px 16px; font-size:15px;
-  background:rgba(255,255,255,.06); color:var(--txt);
-  border:1px solid var(--line); border-radius:12px; outline:none;
-  transition:border-color .15s;
-}
-#lib-search:focus{border-color:var(--r1);}
-#lib-search::placeholder{color:var(--mut);}
-.chips{display:flex; flex-wrap:wrap; gap:7px; margin:14px 0;}
-.chip{
-  font-size:12px; font-weight:500; padding:5px 14px; border-radius:999px;
-  background:rgba(255,255,255,.05); border:1px solid var(--line);
-  color:var(--mut); cursor:pointer; transition:all .15s;
-}
-.chip:hover{color:var(--txt); border-color:rgba(255,255,255,.3);}
-.chip.on{background:var(--txt); color:#0c1016; border-color:transparent; font-weight:600;}
-.lib-grid{display:flex; flex-wrap:wrap; gap:6px; max-height:340px; overflow-y:auto; padding:6px; background:rgba(0,0,0,.25); border-radius:14px;}
-.lib-grid .slot{width:48px; height:48px; font-size:24px;}
+/* footer */
+.foot{padding:22px 16px 46px; text-align:center; color:var(--muted); max-width:var(--maxw); margin:0 auto}
+.hint{font-family:"Space Mono",monospace; font-size:11px; color:var(--muted); letter-spacing:.02em; margin-bottom:10px}
+.sync{font-family:"Space Mono",monospace; font-size:11.5px; letter-spacing:.02em}
+.sync .dot{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green); margin-right:6px; vertical-align:middle}
+.sync.saving .dot{background:var(--amber)}
+.sync.offline .dot{background:#b04a4a}
+.reset{font-family:"Space Mono",monospace; font-size:12px; color:#b04a4a; background:none; border:1px solid #e3c4c4; border-radius:8px; padding:7px 14px; cursor:pointer; margin-top:13px}
+.reset:hover{background:#f7eaea}
+.tools{display:flex; flex-wrap:wrap; gap:9px; justify-content:center; align-items:center; margin-top:13px}
+.tbtn{font-family:"Space Mono",monospace; font-size:11.5px; color:var(--ink-2); background:#fff; border:1px solid var(--line); border-radius:8px; padding:7px 12px; cursor:pointer}
+.tbtn:hover{border-color:var(--amber); color:var(--amber-deep)}
+.tbtn:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+.roombox{font-family:"Space Mono",monospace; font-size:11.5px; color:var(--muted); display:inline-flex; align-items:center; gap:6px}
+#room{font:inherit; font-size:11.5px; width:118px; padding:6px 9px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--text)}
+#room:focus{outline:2px solid var(--amber); outline-offset:0; border-color:var(--amber)}
 
-/* ===== tooltip (the beloved one — unchanged vibe) ===== */
-#tooltip{
-  position:fixed; z-index:200; pointer-events:none; display:none;
-  background:var(--tooltip-bg); color:#fff;
-  border:2px solid var(--tooltip-border); outline:2px solid rgba(0,0,0,.8);
-  padding:6px 10px; font-size:19px; max-width:260px;
-   line-height:1.2;
-}
-#tooltip .t-sv{color:#f5c542; font-size:17px;}
-#tooltip .t-cat{color:#9a86d6; font-size:16px;}
-#tooltip .t-extra{color:#aaa; font-size:16px;}
-#tooltip .t-grp{color:#7fdc8a; font-size:16px;}
-#tooltip .t-dupe{color:#ff8d7a; font-size:16px;}
-
-body.carrying, body.carrying .slot{cursor:grabbing;}
-
-/* ===== zones ===== */
-.zone-row{display:flex; gap:14px; max-width:1280px; margin:14px auto; flex-wrap:wrap;}
-.zone-row .panel{margin:0; flex:1 1 300px;}
-#trash-panel{flex:0 1 190px; min-width:160px; text-align:center;}
-#trash-zone{
-  font-size:34px; padding:16px; cursor:pointer; border-radius:14px;
-  background:rgba(248,113,113,.08);
-  border:1.5px dashed rgba(248,113,113,.45);
-  transition:background .15s;
-}
-#trash-zone:hover,#trash-zone.drop-ok{background:rgba(248,113,113,.22);}
-
-/* ===== modals ===== */
-.modal-bg{position:fixed; inset:0; background:rgba(5,8,12,.7); backdrop-filter:blur(6px); z-index:400; display:none; align-items:flex-start; justify-content:center; overflow-y:auto; padding:40px 12px;}
-.modal-bg.show{display:flex;}
-.modal{max-width:560px; width:100%;}
-.modal textarea{width:100%; min-height:120px; background:rgba(0,0,0,.35); color:var(--txt); border:1px solid var(--line); border-radius:12px; padding:10px; font-family:ui-monospace,monospace; font-size:13px;}
-.modal input[type=text],.modal input[type=date],.modal select{
-  width:100%; padding:10px 14px; background:rgba(255,255,255,.06); color:var(--txt);
-  border:1px solid var(--line); border-radius:11px; margin:5px 0 14px 0; outline:none;
-}
-.modal input:focus,.modal select:focus,.modal textarea:focus{border-color:var(--r1);}
-.modal select option{background:#151b24;}
-.modal label{font-size:11px; font-weight:600; letter-spacing:.1em; color:var(--mut);}
-.modal .row{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;}
-
-/* item detail popover */
-#detail{position:fixed; z-index:350; display:none; width:250px;}
-#detail .panel{margin:0; padding:16px; border-radius:16px; box-shadow:0 16px 40px rgba(0,0,0,.55);}
-#detail .d-name{font-family:'Space Grotesk',sans-serif; font-size:14px; font-weight:600; margin-bottom:10px;}
-#detail .qtyrow{display:flex; align-items:center; gap:12px; margin:10px 0;}
-#detail .qtyrow .btn{font-size:13px;}
-
-/* group gear list */
-.gg-line{display:flex; align-items:center; gap:10px; padding:6px 8px; font-size:14px; border-radius:10px;}
-.gg-line:nth-child(odd){background:rgba(255,255,255,.03);}
-.gg-line .who2{margin-left:auto; color:var(--green); font-weight:500;}
-.gg-line.warn .who2{color:var(--red);}
-
-/* big screens (setup / identity) */
-.screen{max-width:620px; margin:48px auto; padding:0 12px;}
-.screen h2{font-size:16px;}
-.id-btns{display:flex; gap:14px; margin-top:8px; flex-wrap:wrap;}
-.id-btn{flex:1; font-size:14px; padding:26px 10px; min-width:180px; border-radius:16px;}
-.id-btn.r-r1{border:1.5px solid var(--r1); color:var(--r1); background:var(--r1-dim);}
-.id-btn.r-r2{border:1.5px solid var(--r2); color:var(--r2); background:var(--r2-dim);}
-.id-btn:hover{transform:translateY(-2px);}
-.muted{color:var(--mut); font-size:13px;}
-.sync-dot{width:9px; height:9px; display:inline-block; border-radius:50%;}
-.sync-dot.online{background:var(--green); box-shadow:0 0 8px var(--green);}
-.sync-dot.local{background:var(--gold);}
-
-
-/* ===== bike diagram ===== */
-.bike-svg{width:100%; max-width:560px; display:block; margin:0 auto 10px; overflow:visible;}
-.bike-svg .tire{fill:none; stroke:rgba(255,255,255,.13); stroke-width:11;}
-.bike-svg .rim{fill:none; stroke:rgba(255,255,255,.40); stroke-width:2.5;}
-.bike-svg .spokes{stroke:rgba(255,255,255,.14); stroke-width:1.4;}
-.bike-svg .hub{fill:var(--accent); opacity:.75;}
-.bike-svg .tubes{fill:none; stroke:rgba(255,255,255,.36); stroke-width:6.5; stroke-linecap:round; stroke-linejoin:round;}
-.bike-svg .tubes-hi{fill:none; stroke:rgba(255,255,255,.10); stroke-width:2; stroke-linecap:round;}
-.bike-svg .drive{fill:none; stroke:rgba(255,255,255,.30); stroke-width:2.5; stroke-linecap:round;}
-.bike-svg .chain{fill:none; stroke:rgba(255,255,255,.18); stroke-width:2; stroke-dasharray:4 3;}
-.bike-svg .ground{fill:rgba(0,0,0,.32);}
-.bike-svg .saddlepart{fill:rgba(255,255,255,.42);}
-.bagshape{cursor:pointer; transform-box:fill-box; transform-origin:center; transition:transform .15s;}
-.bagshape .bagoutline > *{transition:fill .15s, stroke .15s;}
-.bagshape.on .bagoutline > *{fill:rgba(255,255,255,.05); stroke:var(--accent); stroke-width:2;}
-.bagshape.on text{fill:#fff; font-size:15px; font-weight:600; font-family:'Space Grotesk',sans-serif;
-  paint-order:stroke; stroke:rgba(0,0,0,.65); stroke-width:3px;}
-.bagshape.off .bagoutline > *{fill:transparent; stroke:rgba(255,255,255,.28); stroke-dasharray:5 5; stroke-width:1.5;}
-.bagshape.off .bagfill, .bagshape.off .bagdetail{display:none;}
-.bagfill{fill:var(--accent); opacity:.40; transition:y .35s, height .35s;}
-.bagdetail{fill:none; stroke:var(--accent); stroke-width:1.4; opacity:.5;}
-.bagshape:hover{transform:scale(1.06);}
-.bagshape.off:hover .bagoutline > *{stroke:var(--accent); fill:var(--accent-dim);}
-.bagshape.plop{animation:bagplop .45s;}
-@keyframes bagplop{0%{transform:scale(1);}40%{transform:scale(1.18);}100%{transform:scale(1);}}
-.bag{border-radius:12px;}
-.bag.flash{animation:bagflash 1.2s;}
-@keyframes bagflash{25%{background:var(--accent-dim); box-shadow:0 0 0 3px var(--accent-dim);}}
-
-
-/* ===== list view ===== */
-.bag-list{display:flex; flex-direction:column; gap:3px; width:100%;}
-.li{display:flex; align-items:center; gap:9px; padding:6px 10px; border-radius:10px;
-  background:rgba(255,255,255,.04); font-size:14px; min-height:34px;}
-.li:hover{background:rgba(255,255,255,.08);}
-.li.done .li-name{opacity:.45; text-decoration:line-through;}
-.li-chk{cursor:pointer; font-size:17px; color:var(--accent,var(--txt)); line-height:1;}
-.li-ico{font-size:16px;}
-.li-name i{color:var(--mut); font-style:normal; font-size:12px; margin-left:7px;}
-.li-qty{color:var(--mut); font-size:12px; font-weight:600;}
-.li-grp{font-size:11px;}
-.li-dupe{width:15px; height:15px; border-radius:50%; background:var(--red); color:#1b0606;
-  font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;}
-.li-btns{margin-left:auto; display:flex; gap:4px; opacity:0; transition:opacity .15s;}
-.li:hover .li-btns{opacity:1;}
-.li-btns button{background:rgba(255,255,255,.07); border:1px solid var(--line); border-radius:7px;
-  color:var(--txt); font-size:13px; width:25px; height:25px; line-height:1; padding:0;}
-.li-btns button:hover{background:rgba(255,255,255,.16);}
-.quickadd{margin-top:5px; background:transparent; border:1.5px dashed var(--line); border-radius:10px;
-  color:var(--txt); padding:8px 12px; font-size:13px; outline:none; width:100%;}
-.quickadd:focus{border-color:var(--accent,rgba(255,255,255,.4)); border-style:solid;}
-.quickadd::placeholder{color:var(--mut);}
-@media (hover:none){ .li-btns{opacity:1;} }
-
-/* quick-add popup picker */
-#qa-pop{position:fixed; z-index:400; display:none; width:305px; max-height:330px; overflow-y:auto;
-  background:#161c26; border:1px solid rgba(255,255,255,.14); border-radius:13px;
-  box-shadow:0 16px 44px rgba(0,0,0,.55); padding:5px;}
-.qa-head{padding:7px 11px 3px; font-size:10.5px; letter-spacing:.1em; color:var(--mut); text-transform:uppercase;}
-.qa-row{display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:9px; cursor:pointer; font-size:14px;}
-.qa-row:hover{background:rgba(255,255,255,.09);}
-.qa-row .qa-sub{margin-left:auto; color:var(--mut); font-size:11px; white-space:nowrap;}
-.qa-back{color:var(--mut); font-size:12.5px; border-bottom:1px solid rgba(255,255,255,.09);
-  border-radius:9px 9px 0 0; margin-bottom:3px; position:sticky; top:-5px; background:#161c26; z-index:1;}
-.qa-new{color:#7dd3fc;}
-.qa-empty{padding:10px 11px; color:var(--mut); font-size:13px;}
-
-/* drag & drop */
-.li-drag{cursor:grab; color:var(--mut); font-size:14px; touch-action:none; user-select:none;
-  padding:2px 1px; line-height:1; flex:none;}
-.li-drag:hover{color:var(--txt);}
-#drag-ghost{position:fixed; z-index:600; pointer-events:none; transform:translate(-50%,-130%);
-  background:#1d2430; border:1px solid rgba(255,255,255,.28); border-radius:10px; padding:7px 13px;
-  font-size:13px; color:var(--txt); box-shadow:0 14px 34px rgba(0,0,0,.55); white-space:nowrap;}
-body.dragging{cursor:grabbing !important; user-select:none;}
-body.dragging *{cursor:grabbing !important;}
-.bag.droptgt, #pile-panel.droptgt, .personal-card.droptgt{
-  outline:2px solid var(--accent, #7dd3fc); outline-offset:2px; border-radius:13px;}
-svg .bagshape.droptgt{transform:scale(1.14); filter:drop-shadow(0 0 8px var(--accent));}
-svg .bagshape.droptgt .bagoutline > *{stroke:#fff; stroke-width:3; fill:var(--accent-dim);}
-
-/* toast */
-#toast{
-  position:fixed; left:50%; bottom:22px; transform:translateX(-50%);
-  background:#1d2430; color:var(--txt); border:1px solid rgba(255,255,255,.15);
-  border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.5);
-  padding:10px 18px; font-size:14px; z-index:500; display:none; max-width:90vw;
-}
-
-@media (max-width:760px){
-  body{font-size:14px;}
-  .slot{width:46px; height:46px; font-size:24px;}
-  header h1{font-size:14px;}
-  .panel{padding:14px; border-radius:15px;}
-}
+/* sync modal */
+.overlay{position:fixed; inset:0; background:rgba(20,28,40,.55); backdrop-filter:blur(3px); z-index:100; display:flex; align-items:flex-end; justify-content:center; padding:0}
+.overlay[hidden]{display:none}
+.modal{background:var(--paper); width:100%; max-width:var(--maxw); border-radius:18px 18px 0 0; padding:22px 18px calc(22px + env(safe-area-inset-bottom)); box-shadow:0 -10px 40px -10px rgba(0,0,0,.4); max-height:90vh; overflow-y:auto}
+@media (min-width:560px){ .overlay{align-items:center} .modal{border-radius:16px} }
+.modal-h{font-family:"Jost",sans-serif; font-weight:600; font-size:20px; letter-spacing:-.01em; margin:0 0 8px}
+.modal-p{font-size:13.5px; line-height:1.5; color:var(--ink-2); margin:0 0 16px}
+.modal-p code{font-family:"Space Mono",monospace; font-size:12px; background:#dfe3e7; padding:1px 5px; border-radius:5px}
+.modal-l{display:block; font-family:"Space Mono",monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 6px}
+.modal-ta{width:100%; min-height:120px; font-family:"Space Mono",monospace; font-size:12px; line-height:1.5; padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--text); resize:vertical; margin-bottom:14px}
+.modal-in{width:100%; font:inherit; font-size:15px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--text); margin-bottom:16px}
+.modal-ta:focus,.modal-in:focus{outline:2px solid var(--amber); outline-offset:0; border-color:var(--amber)}
+.modal-row{display:flex; flex-wrap:wrap; gap:9px}
+.mbtn{font-family:"Jost",sans-serif; font-weight:500; font-size:14px; padding:11px 16px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer}
+.mbtn.primary{background:var(--amber); border-color:var(--amber); color:#fff; font-weight:600}
+.mbtn.primary:hover{background:var(--amber-deep)}
+.mbtn.ghost{color:var(--muted)}
+.mbtn.wide{width:100%; margin-top:9px; border-style:dashed}
+.mbtn:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+.modal-note{font-family:"Space Mono",monospace; font-size:12px; color:var(--amber-deep); margin:12px 0 0; min-height:16px}
 </style>
 </head>
 <body>
 
-<header id="hdr" style="display:none;">
-  <h1 id="h-trip">BIKEPACK</h1>
-  <span class="countdown" id="h-count"></span>
-  <span class="spacer"></span>
-  <span class="who"><span class="sync-dot local" id="sync-dot"></span> <span id="h-user"></span></span>
-  <button class="btn small" id="btn-switch">SWITCH</button>
-  <button class="btn small" id="btn-pack">PACKING: OFF</button>
-  <button class="btn small" id="btn-custom">+ CUSTOM</button>
-  <button class="btn small" id="btn-export">EXPORT</button>
-  <button class="btn small" id="btn-sync">SYNC</button>
+<header class="hero">
+  <svg class="hero-bg" viewBox="0 0 660 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="none" stroke="#33445a" stroke-width="1.1" opacity="0.5">
+      <path d="M-20,50 C120,26 220,80 330,58 C450,34 550,84 690,60"/>
+      <path d="M-20,92 C120,70 230,120 340,98 C460,76 550,122 690,100"/>
+      <path d="M-20,138 C130,118 220,168 335,144 C460,120 560,166 690,142"/>
+      <path d="M-20,184 C120,168 230,216 340,192 C460,170 550,214 690,190"/>
+      <path d="M-20,230 C130,216 220,260 335,238 C460,218 560,260 690,238"/>
+    </g>
+  </svg>
+  <div class="hero-inner">
+    <p class="eyebrow">Bikepacking · Sommar 2026</p>
+    <h1 class="title">Packlista</h1>
+    <p class="route"><b>NYNÄSHAMN</b> <span>→</span> <b>GDAŃSK</b> <span>→ Polen → Tjeckien →</span> <b>PRAHA</b></p>
+    <svg class="mark" viewBox="0 0 460 84" fill="none" aria-hidden="true">
+      <g stroke-linecap="round" stroke-linejoin="round">
+        <!-- echo ring behind sun -->
+        <circle cx="404" cy="32" r="27" stroke="#e9dcc8" stroke-width="2" opacity="0.4"/>
+        <!-- geometric road -->
+        <polyline points="18,62 128,62 188,30 396,30" stroke="#e2872f" stroke-width="9"/>
+        <!-- start terminal -->
+        <circle cx="18" cy="62" r="8" fill="#e2872f"/>
+        <!-- waypoint node -->
+        <circle cx="128" cy="62" r="6.5" fill="#1b2430" stroke="#e2872f" stroke-width="4"/>
+        <!-- sunburst destination -->
+        <circle cx="404" cy="32" r="13" fill="#e2872f"/>
+        <g stroke="#e2872f" stroke-width="4.5">
+          <line x1="404" y1="11" x2="404" y2="2"/>
+          <line x1="419" y1="17" x2="425" y2="11"/>
+          <line x1="425" y1="32" x2="434" y2="32"/>
+          <line x1="419" y1="47" x2="425" y2="53"/>
+          <line x1="404" y1="53" x2="404" y2="62"/>
+          <line x1="389" y1="47" x2="383" y2="53"/>
+          <line x1="383" y1="32" x2="374" y2="32"/>
+          <line x1="389" y1="17" x2="383" y2="11"/>
+        </g>
+      </g>
+    </svg>
+    <div class="chips">
+      <span class="chip accent" id="daysleft">— DAGAR KVAR</span><span class="chip">CAMPING</span><span class="chip">ERIC &amp; WOJTEK</span>
+    </div>
+  </div>
 </header>
 
-<!-- ===== IDENTITY SCREEN ===== -->
-<div class="screen" id="screen-identity" style="display:none;">
-  <div class="panel wood">
-    <div class="panel-title">WHO ARE YOU?</div>
-    <div class="panel" style="margin:0;">
-      <div class="id-btns">
-        <button class="btn id-btn r-r1" id="id-r1">?</button>
-        <button class="btn id-btn r-r2" id="id-r2">?</button>
-      </div>
-      <p class="muted">Saved on this device only. You can switch any time.</p>
+<div class="head">
+  <div class="bar-line"><div class="bar-fill" id="fill"></div></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="addwrap">
+    <div class="addbox">
+      <span class="plus">+</span>
+      <input id="add" type="text" autocomplete="off" placeholder="Lägg till…" aria-label="Lägg till sak">
     </div>
+    <div class="sugg" id="sugg"></div>
   </div>
 </div>
 
-<!-- ===== MAIN ===== -->
-<div id="screen-main" style="display:none;">
+<div class="viewport" id="viewport"><div class="track" id="track"></div></div>
 
-  <div class="bikes-row" style="margin-top:14px;" id="bikes-row"></div>
-
-  <div class="zone-row">
-    <div class="panel" id="pile-panel" data-drop="pile">
-      <div class="panel-title">📦 THE PILE <span class="muted">— stuff we should take, bag TBD</span></div>
-      <div class="slot-grid" id="pile-grid"></div>
-    </div>
+<div class="foot">
+  <div class="hint">Svep mellan kategorierna. Packat flyttas längst ner.</div>
+  <div class="sync" id="sync"><span class="dot"></span><span id="sync-text">Synkad</span></div>
+  <div class="tools">
+    <button class="tbtn" id="syncbtn">⚙ Firebase-synk</button>
+    <button class="tbtn" id="resync">↻ Synka nu</button>
   </div>
-
-  <div class="zone-row" id="personal-row"></div>
-
-  <div class="panel" id="gg-panel">
-    <div class="panel-title">🤝 GROUP GEAR <span class="muted">— shared stuff &amp; who hauls it</span></div>
-    <div id="gg-list"></div>
-  </div>
-
+  <button class="reset" id="reset">Återställ till grundlistan</button>
 </div>
 
-<!-- ===== floating bits ===== -->
-<div id="tooltip"></div>
-<div id="qa-pop"></div>
-<div id="toast"></div>
-
-<!-- sync modal -->
-<div class="modal-bg" id="m-sync">
-  <div class="modal">
-    <div class="panel wood"><div class="panel-title">🔗 REALTIME SYNC (FIREBASE)</div>
-      <div class="panel" style="margin:0;">
-        <p class="muted" style="margin-top:0;">Paste your Firebase web config (JSON) and pick a shared Trip ID. Your friend pastes the same two things on their device. Full instructions in SETUP guide.</p>
-        <label>FIREBASE CONFIG (JSON)</label>
-        <textarea id="fb-config" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"...","projectId":"..."}'></textarea>
-        <label>TRIP ID</label>
-        <input type="text" id="fb-trip" placeholder="baltic-2026-x7k2">
-        <div class="row">
-          <button class="btn" id="fb-connect">CONNECT</button>
-          <button class="btn" id="fb-disconnect">GO LOCAL</button>
-          <button class="btn" id="m-sync-close">CLOSE</button>
-        </div>
-        <p class="muted" id="fb-status"></p>
-      </div>
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Realtidssynk">
+    <h2 class="modal-h">Realtidssynk (Firebase)</h2>
+    <p class="modal-p">Listan synkas redan automatiskt mellan dig och din kompis via den inbyggda Firebase-konfigen. Här kan du byta Trip-ID eller koppla in en annan databas om du vill. Packlistan sparas som en egen trip under <code>trips/&lt;trip-id&gt;</code> i samma databas som inventory-appen.</p>
+    <label class="modal-l" for="cfg">Firebase-config (JSON)</label>
+    <textarea id="cfg" class="modal-ta" spellcheck="false" placeholder='{ "apiKey": "…", "authDomain": "…", "databaseURL": "https://bikepack-6dc07-default-rtdb.…", "projectId": "…", "appId": "…" }'></textarea>
+    <label class="modal-l" for="trip">Trip-ID</label>
+    <input id="trip" class="modal-in" autocomplete="off" spellcheck="false" placeholder="t.ex. packlista-eric-wojtek-2026-k7x2q9">
+    <div class="modal-row">
+      <button class="mbtn primary" id="connect">Anslut</button>
+      <button class="mbtn" id="golocal">Kör lokalt</button>
+      <button class="mbtn ghost" id="closem">Stäng</button>
     </div>
-  </div>
-</div>
-
-<!-- export modal -->
-<div class="modal-bg" id="m-export">
-  <div class="modal">
-    <div class="panel wood"><div class="panel-title">📜 EXPORT LIST</div>
-      <div class="panel" style="margin:0;">
-        <textarea id="export-text" style="min-height:300px;"></textarea>
-        <div class="row">
-          <button class="btn" id="export-copy">COPY</button>
-          <button class="btn" id="m-export-close">CLOSE</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- custom item modal -->
-<div class="modal-bg" id="m-custom">
-  <div class="modal">
-    <div class="panel wood"><div class="panel-title">✨ CUSTOM ITEM</div>
-      <div class="panel" style="margin:0;">
-        <label>NAME</label>
-        <input type="text" id="cu-name" placeholder="Lucky rubber duck">
-        <label>SVENSKT NAMN (optional)</label>
-        <input type="text" id="cu-sv" placeholder="Tält">
-        <label>ICON (emoji)</label>
-        <input type="text" id="cu-emoji" placeholder="🦆" maxlength="4">
-        <label>CATEGORY</label>
-        <select id="cu-cat"></select>
-        <label style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="cu-group" style="width:auto;"> GROUP GEAR</label>
-        <div class="row">
-          <button class="btn" id="cu-add">ADD TO LIBRARY</button>
-          <button class="btn" id="m-custom-close">CLOSE</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- bag editor modal -->
-<div class="modal-bg" id="m-bags">
-  <div class="modal">
-    <div class="panel wood"><div class="panel-title" id="bags-title">🚲 EDIT BAGS</div>
-      <div class="panel" style="margin:0;">
-        <div id="bags-list"></div>
-        <div class="row"><button class="btn" id="m-bags-close">DONE</button></div>
-      </div>
-    </div>
+    <button class="mbtn wide" id="pushdefaults">↧ Fyll med grundlistan &amp; pusha</button>
+    <p class="modal-note" id="modalnote"></p>
   </div>
 </div>
 
 <script>
-/* =================================================================
-   BIKEPACK INVENTORY — chunky pixel chest GUI for two-bike packing
-   ================================================================= */
-
-/* ---------- ITEM LIBRARY ---------- */
-const CATS = ["Shelter","Sleep","Cook","Water","Tools","Spares","Bike Gear","Electronics","Navigation",
-  "Clothing","Rain Gear","Hygiene","First Aid","Food","Docs & Money","Camp Life","Luxury","Custom"];
-
-/* Swedish category names + 2-level hierarchy for the picker */
-const CAT_SV = {
-  "Shelter":"Tält & skydd", "Sleep":"Sömn", "Cook":"Kök", "Water":"Vatten",
-  "Tools":"Verktyg", "Spares":"Reservdelar", "Bike Gear":"Cykelutrustning", "Electronics":"Elektronik",
-  "Navigation":"Navigation", "Clothing":"Kläder", "Rain Gear":"Regnkläder",
-  "Hygiene":"Hygien", "First Aid":"Första hjälpen", "Food":"Mat",
-  "Docs & Money":"Dokument & pengar", "Camp Life":"Lägerliv", "Luxury":"Lyx & nöje",
-  "Custom":"Egna prylar"
-};
-const GROUPS = [
-  {name:"Sova & läger",            emoji:"🏕️", cats:["Shelter","Sleep","Camp Life"]},
-  {name:"Kök, vatten & mat",       emoji:"🍳", cats:["Cook","Water","Food"]},
-  {name:"Cykel & verktyg",         emoji:"🔧", cats:["Tools","Spares","Bike Gear"]},
-  {name:"Kläder",                  emoji:"👕", cats:["Clothing","Rain Gear"]},
-  {name:"Elektronik & navigation", emoji:"🔋", cats:["Electronics","Navigation"]},
-  {name:"Hälsa & hygien",          emoji:"🧼", cats:["Hygiene","First Aid"]},
-  {name:"Övrigt",                  emoji:"🎒", cats:["Docs & Money","Luxury","Custom"]}
+/* ---------- categories ---------- */
+const CATS=[
+  {id:'klader',   label:'Kläder',     icon:'👕'},
+  {id:'verktyg',  label:'Verktyg',    icon:'🔧'},
+  {id:'camping',  label:'Camping',    icon:'🏕️'},
+  {id:'hygien',   label:'Hygien',     icon:'🧴'},
+  {id:'elektronik',label:'Elektronik',icon:'🔌'},
+  {id:'dokument', label:'Dokument',   icon:'🪪'},
 ];
 
-function I(name, emoji, cat, group){ return {name, emoji, cat, group:!!group}; }
-const LIB = {};
-[
- /* Shelter */
- I("Tent","⛺","Shelter",1), I("Tent Poles","🥢","Shelter",1), I("Tent Pegs","📌","Shelter",1),
- I("Tarp","🟩","Shelter",1), I("Bivy Bag","🛌","Shelter"), I("Footprint / Groundsheet","🟫","Shelter",1),
- I("Guy Lines","🧵","Shelter",1), I("Hammock","🪢","Shelter"), I("Bug Net","🦟","Shelter"),
- I("Repair Sleeve (pole)","🩹","Shelter",1),
- /* Sleep */
- I("Sleeping Bag","🛏️","Sleep"), I("Sleeping Pad","🧘","Sleep"), I("Inflatable Pillow","☁️","Sleep"),
- I("Sleeping Bag Liner","🧦","Sleep"), I("Quilt","🪶","Sleep"), I("Pad Repair Kit","🩹","Sleep"),
- I("Earplugs","👂","Sleep"), I("Eye Mask","🕶️","Sleep"),
- /* Cook */
- I("Stove","🔥","Cook",1), I("Gas Canister","🛢️","Cook",1), I("Pot","🍲","Cook",1),
- I("Pan","🍳","Cook",1), I("Spork","🥄","Cook"), I("Folding Knife","🔪","Cook",1),
- I("Mug","☕","Cook"), I("Bowl","🥣","Cook"), I("Lighter","🔥","Cook",1),
- I("Matches (waterproof)","🔥","Cook",1), I("Windscreen","🛡️","Cook",1), I("Coffee Maker / Filter","☕","Cook",1),
- I("Dish Soap (mini)","🧼","Cook",1), I("Sponge","🧽","Cook",1), I("Cutting Board (mini)","🟧","Cook",1),
- I("Food Bag / Bear Hang","🛍️","Cook",1), I("Trash Bag","🗑️","Cook",1),
- /* Water */
- I("Water Bottle","🚰","Water"), I("Water Bladder","💧","Water"), I("Water Filter","🧃","Water",1),
- I("Purification Tablets","💊","Water",1), I("Extra Bottle Cage Bottle","🚰","Water"),
- I("Collapsible Water Bag 4L","💧","Water",1), I("Electrolyte Tabs","⚡","Water"),
- /* Tools */
- I("Multitool","🔧","Tools",1), I("Pump","🪠","Tools",1), I("Tire Levers","🥄","Tools",1),
- I("Chain Tool","⛓️","Tools",1), I("Chain Lube","🧴","Tools",1), I("Rag","🧻","Tools",1),
- I("Zip Ties","🪢","Tools",1), I("Duct Tape (wrapped)","🩹","Tools",1), I("Spoke Key","🛞","Tools",1),
- I("Pliers (mini)","🗜️","Tools",1), I("Allen Key Set","🔩","Tools",1), I("Tire Boot","🩹","Tools",1),
- I("Super Glue","💧","Tools",1), I("Sewing Kit","🪡","Tools",1), I("CO2 Inflator","💨","Tools"),
- /* Spares */
- I("Spare Tube","⭕","Spares"), I("Patch Kit","🩹","Spares",1), I("Quick Links","⛓️","Spares",1),
- I("Spare Spokes","🛞","Spares",1), I("Brake Pads","🦶","Spares"), I("Derailleur Hanger","🪝","Spares"),
- I("Spare Bolts","🔩","Spares",1), I("Spare Cleats","👟","Spares"), I("Shifter Cable","🧵","Spares",1),
- I("Tubeless Sealant","🥛","Spares",1), I("Tubeless Plugs","🔌","Spares",1), I("Valve Cores","📍","Spares",1),
- I("Spare Tire (folding)","⭕","Spares",1),
- /* Electronics */
- I("Phone","📱","Electronics"), I("Phone Charger","🔌","Electronics"), I("Power Bank","🔋","Electronics"),
- I("USB Cables","🧵","Electronics"), I("Wall Plug (multi-USB)","🔌","Electronics",1),
- I("Front Light","💡","Electronics"), I("Rear Light","🔴","Electronics"), I("Headlamp","🔦","Electronics"),
- I("GPS Computer","🧭","Electronics"), I("Camera","📷","Electronics",1), I("Spare Batteries","🔋","Electronics",1),
- I("Earbuds","🎧","Electronics"), I("Dynamo Charger","⚙️","Electronics"), I("Solar Panel","☀️","Electronics",1),
- I("E-reader","📖","Electronics"), I("Smartwatch Charger","⌚","Electronics"), I("Drone","🚁","Electronics",1),
- /* Navigation */
- I("Paper Map","🗺️","Navigation",1), I("Compass","🧭","Navigation",1), I("Route Notes / Cue Sheet","📝","Navigation",1),
- I("Guidebook Pages","📖","Navigation",1), I("Map Case (waterproof)","🗂️","Navigation",1),
- /* Clothing */
- I("Bib Shorts","🩳","Clothing"), I("Jersey","👕","Clothing"), I("Base Layer","🎽","Clothing"),
- I("Cycling Socks","🧦","Clothing"), I("Gloves (mitts)","🧤","Clothing"), I("Helmet","⛑️","Clothing"),
- I("Cycling Shoes","👟","Clothing"), I("Sunglasses","🕶️","Clothing"), I("Cap","🧢","Clothing"),
- I("Arm Warmers","💪","Clothing"), I("Leg Warmers","🦵","Clothing"), I("Buff / Neck Tube","🧣","Clothing"),
- I("Camp Shirt","👕","Clothing"), I("Camp Shorts","🩳","Clothing"), I("Camp Pants","👖","Clothing"),
- I("Underwear","🩲","Clothing"), I("Warm Socks","🧦","Clothing"), I("Down Jacket","🧥","Clothing"),
- I("Fleece","🧥","Clothing"), I("Beanie","🎩","Clothing"), I("Warm Gloves","🧤","Clothing"),
- I("Sandals / Camp Shoes","🩴","Clothing"), I("Swim Shorts","🩱","Clothing"), I("Travel Towel","🏖️","Clothing"),
- I("Hi-vis Vest","🦺","Clothing"),
- /* Rain Gear */
- I("Rain Jacket","🧥","Rain Gear"), I("Rain Pants","👖","Rain Gear"), I("Shoe Covers","👟","Rain Gear"),
- I("Waterproof Gloves","🧤","Rain Gear"), I("Saddle Rain Cover","🛡️","Rain Gear"),
- I("Dry Bags (spare)","🛍️","Rain Gear",1), I("Poncho","🧥","Rain Gear"), I("Helmet Rain Cover","⛑️","Rain Gear"),
- /* Hygiene */
- I("Toothbrush","🪥","Hygiene"), I("Toothpaste (mini)","🦷","Hygiene",1), I("Soap Bar (multi-use)","🧼","Hygiene",1),
- I("Deodorant (mini)","🧴","Hygiene"), I("Sunscreen","🌞","Hygiene",1), I("Lip Balm SPF","💋","Hygiene"),
- I("Chamois Cream","🧴","Hygiene"), I("Wet Wipes","🧻","Hygiene",1), I("Toilet Paper","🧻","Hygiene",1),
- I("Trowel","🪏","Hygiene",1), I("Hand Sanitizer","🧴","Hygiene",1), I("Nail Clippers","✂️","Hygiene",1),
- I("Razor","🪒","Hygiene"), I("Comb","💈","Hygiene"), I("Contact Lenses / Solution","👁️","Hygiene"),
- I("Insect Repellent","🦟","Hygiene",1), I("Microfibre Cloth","🧻","Hygiene"),
- /* First Aid */
- I("First Aid Kit","⛑️","First Aid",1), I("Plasters","🩹","First Aid",1), I("Blister Patches","🩹","First Aid",1),
- I("Painkillers","💊","First Aid",1), I("Antihistamines","💊","First Aid",1), I("Antiseptic Wipes","🧻","First Aid",1),
- I("Bandage","🩹","First Aid",1), I("Tick Tweezers","🔱","First Aid",1), I("Personal Meds","💊","First Aid"),
- I("Rehydration Salts","🧂","First Aid",1), I("Emergency Blanket","✨","First Aid",1),
- I("Imodium","💊","First Aid",1), I("Tape (medical)","🩹","First Aid",1),
- /* Food */
- I("Pasta / Rice","🍚","Food",1), I("Instant Noodles","🍜","Food"), I("Oats","🥣","Food",1),
- I("Energy Bars","🍫","Food"), I("Gels","🧃","Food"), I("Trail Mix","🥜","Food",1),
- I("Dried Fruit","🍇","Food",1), I("Chocolate","🍫","Food",1), I("Instant Coffee","☕","Food",1),
- I("Tea Bags","🍵","Food",1), I("Milk Powder","🥛","Food",1), I("Sugar / Honey","🍯","Food",1),
- I("Salt & Spices","🧂","Food",1), I("Olive Oil (mini)","🫒","Food",1), I("Canned Fish","🐟","Food"),
- I("Tortillas / Bread","🫓","Food",1), I("Peanut Butter","🥜","Food",1), I("Cheese","🧀","Food",1),
- I("Salami","🥖","Food",1), I("Dehydrated Meals","🍲","Food"), I("Emergency Snack Stash","🍬","Food"),
- /* Docs & Money */
- I("Passport / ID","🛂","Docs & Money"), I("Wallet","👛","Docs & Money"), I("Cash","💶","Docs & Money"),
- I("Bank Card","💳","Docs & Money"), I("Insurance Card","📄","Docs & Money"), I("Emergency Contacts Note","📞","Docs & Money"),
- I("Train Tickets","🎫","Docs & Money"), I("House Keys","🔑","Docs & Money"), I("Bike Lock Key","🔑","Docs & Money"),
- I("Photocopies of Docs","📄","Docs & Money"),
- /* Camp Life */
- I("Bike Lock","🔒","Camp Life",1), I("Cable Lock (light)","🔗","Camp Life"), I("Camp Chair (mini)","🪑","Camp Life"),
- I("Sit Pad","🟦","Camp Life"), I("Clothesline","🧵","Camp Life",1), I("Carabiners","🪝","Camp Life",1),
- I("Bungee Cords","🪢","Camp Life",1), I("Voile Straps","🎀","Camp Life",1), I("Lantern (mini)","🏮","Camp Life",1),
- I("Mosquito Coil","🌀","Camp Life",1), I("Multifuel Bottle","🛢️","Camp Life",1),
- /* Luxury */
- I("Book","📚","Luxury"), I("Journal + Pen","✍️","Luxury"), I("Playing Cards","🃏","Luxury",1),
- I("Bluetooth Speaker","🔊","Luxury",1), I("Flask (whisky)","🥃","Luxury",1), I("Harmonica","🎵","Luxury"),
- I("Fishing Kit (mini)","🎣","Luxury"), I("Binoculars","🔭","Luxury",1), I("Hammock Chair","🪢","Luxury"),
- I("Frisbee","🥏","Luxury",1), I("Pillow (real one)","🛋️","Luxury"), I("Mascot","🧸","Luxury",1),
- /* --- 2026 additions --- */
- I("Thermos","☕","Cook",1), I("Fuel Tablets","🔥","Cook",1), I("Foldable Cup","🥤","Cook"),
- I("Presta Adapter","🔩","Tools",1), I("Grease (mini)","🧴","Tools",1), I("Torque Key","🔧","Tools",1),
- I("Brake Cable","🧵","Spares",1), I("Spare Straps","🎀","Spares",1), I("Spare Buckles","🔘","Spares",1),
- I("Phone Mount","📱","Electronics"), I("Action Camera","🎥","Electronics",1), I("Mini Tripod","📐","Electronics",1),
- I("Memory Cards","💾","Electronics"), I("Travel Adapter","🔌","Electronics"), I("SIM / eSIM","📶","Electronics"),
- I("Long-sleeve Jersey","👕","Clothing"), I("Wind Vest","🦺","Clothing"), I("Sleepwear","😴","Clothing"),
- I("Belt","🧷","Clothing"), I("Spare Bib Shorts","🩳","Clothing"),
- I("Waterproof Socks","🧦","Rain Gear"), I("Clip-on Mudguard","🛡️","Rain Gear"),
- I("Dental Floss","🦷","Hygiene"), I("Laundry Soap (travel)","🧺","Hygiene",1),
- I("Mirror (mini)","🪞","Hygiene",1), I("After Sun","🧴","Hygiene",1),
- I("Eye Drops","👁️","First Aid",1), I("Burn Gel","🔥","First Aid",1), I("Wound Closure Strips","🩹","First Aid",1),
- I("Couscous","🍚","Food",1), I("Red Lentils","🫘","Food",1), I("Müsli","🥣","Food",1),
- I("Crispbread","🍘","Food",1), I("Hot Chocolate","🍫","Food",1), I("Jam (mini)","🍓","Food",1),
- I("Sports Drink Powder","⚡","Food"),
- I("Driver's License","🪪","Docs & Money"), I("Vaccination Card","💉","Docs & Money"),
- I("Ferry Tickets","⛴️","Docs & Money"), I("Camping Card","🏕️","Docs & Money"),
- I("Firesteel","🔥","Camp Life",1), I("Rope 5 m","🪢","Camp Life",1), I("Tealight Candles","🕯️","Camp Life",1),
- I("Kubb (mini)","🪵","Luxury",1), I("Travel Game","🎲","Luxury",1), I("Swimming Goggles","🥽","Luxury"),
- I("Coffee Grinder (mini)","☕","Luxury",1), I("Sketchbook","🎨","Luxury"),
- /* --- more bike stuff --- */
- I("Chain Wear Checker","📏","Tools",1), I("Cassette Tool (mini)","🛠️","Tools",1),
- I("Degreaser (mini)","🧴","Tools",1), I("Pressure Gauge","🌡️","Tools",1),
- I("Steel Wire","🧵","Tools",1), I("Drivetrain Brush","🧹","Tools",1),
- I("Shock Pump","💨","Tools",1), I("Brake Bleed Kit (mini)","💉","Tools",1),
- I("Spare Chain","⛓️","Spares"), I("Rim Tape","🩹","Spares",1),
- I("Tubeless Valves","📍","Spares",1), I("Shifter Battery (spare)","🔋","Spares"),
- I("Brake Fluid (mini)","🧴","Spares",1), I("Spare Jockey Wheel","⚙️","Spares",1),
- I("Bell","🔔","Bike Gear"), I("Bar Mirror","🪞","Bike Gear"),
- I("Bottle Cage (extra)","🥤","Bike Gear"), I("Bar Tape","🎗️","Bike Gear",1),
- I("Aero Bars","🏎️","Bike Gear"), I("Reflective Vest","🦺","Bike Gear"),
- I("Spoke Reflectors","🔆","Bike Gear"), I("Kickstand (clip-on)","🦿","Bike Gear"),
- I("Frame Protection Tape","🛡️","Bike Gear",1), I("Cycling Glasses (clear lens)","👓","Bike Gear"),
- I("Top Tube Protector","🧷","Bike Gear"), I("Cadence/Speed Sensor","📡","Bike Gear"),
- I("Heart Rate Strap","❤️","Bike Gear"), I("Bike Cover (light)","🛌","Bike Gear",1)
-].forEach((it,i)=>{ LIB["i"+i] = it; });
-
-
-/* ---------- SWEDISH NAMES (hover) ---------- */
-const SV = {
-"Tent": "Tält",
-"Tent Poles": "Tältstänger",
-"Tent Pegs": "Tältpinnar",
-"Tarp": "Tarp",
-"Bivy Bag": "Bivacksäck",
-"Footprint / Groundsheet": "Markduk",
-"Guy Lines": "Stormlinor",
-"Hammock": "Hängmatta",
-"Bug Net": "Myggnät",
-"Repair Sleeve (pole)": "Reparationshylsa (tältstång)",
-"Sleeping Bag": "Sovsäck",
-"Sleeping Pad": "Liggunderlag",
-"Inflatable Pillow": "Uppblåsbar kudde",
-"Sleeping Bag Liner": "Sovsäckslakan",
-"Quilt": "Quilt (täcke)",
-"Pad Repair Kit": "Lagningskit (liggunderlag)",
-"Earplugs": "Öronproppar",
-"Eye Mask": "Sovmask",
-"Stove": "Stormkök",
-"Gas Canister": "Gasbehållare",
-"Pot": "Kastrull",
-"Pan": "Stekpanna",
-"Spork": "Spork (gaffelsked)",
-"Folding Knife": "Fällkniv",
-"Mug": "Mugg",
-"Bowl": "Skål",
-"Lighter": "Tändare",
-"Matches (waterproof)": "Tändstickor (vattentäta)",
-"Windscreen": "Vindskydd",
-"Coffee Maker / Filter": "Kaffebryggare / filter",
-"Dish Soap (mini)": "Diskmedel (mini)",
-"Sponge": "Disksvamp",
-"Cutting Board (mini)": "Skärbräda (mini)",
-"Food Bag / Bear Hang": "Matpåse / björnsäck",
-"Trash Bag": "Soppåse",
-"Water Bottle": "Vattenflaska",
-"Water Bladder": "Vätskeblåsa",
-"Water Filter": "Vattenfilter",
-"Purification Tablets": "Reningstabletter",
-"Extra Bottle Cage Bottle": "Extra flaska (flaskställ)",
-"Collapsible Water Bag 4L": "Hopfällbar vattensäck 4L",
-"Electrolyte Tabs": "Elektrolyttabletter",
-"Multitool": "Multiverktyg",
-"Pump": "Pump",
-"Tire Levers": "Däckavtagare",
-"Chain Tool": "Kedjeverktyg",
-"Chain Lube": "Kedjeolja",
-"Rag": "Trasa",
-"Zip Ties": "Buntband",
-"Duct Tape (wrapped)": "Silvertejp (rullad)",
-"Spoke Key": "Ekernyckel",
-"Pliers (mini)": "Tång (mini)",
-"Allen Key Set": "Insexnyckelsats",
-"Tire Boot": "Däckboot (lagningsbit)",
-"Super Glue": "Superlim",
-"Sewing Kit": "Sysats",
-"CO2 Inflator": "CO2-pump",
-"Spare Tube": "Reservslang",
-"Patch Kit": "Lagningskit",
-"Quick Links": "Kedjelås (quick link)",
-"Spare Spokes": "Reservekrar",
-"Brake Pads": "Bromsbelägg",
-"Derailleur Hanger": "Växelöra",
-"Spare Bolts": "Reservskruvar",
-"Spare Cleats": "Reservklossar (cleats)",
-"Shifter Cable": "Växelvajer",
-"Tubeless Sealant": "Tubelessvätska",
-"Tubeless Plugs": "Tubelesspluggar",
-"Valve Cores": "Ventilkärnor",
-"Spare Tire (folding)": "Reservdäck (vikbart)",
-"Phone": "Mobiltelefon",
-"Phone Charger": "Mobilladdare",
-"Power Bank": "Powerbank",
-"USB Cables": "USB-kablar",
-"Wall Plug (multi-USB)": "Väggladdare (multi-USB)",
-"Front Light": "Framlampa",
-"Rear Light": "Baklampa",
-"Headlamp": "Pannlampa",
-"GPS Computer": "Cykeldator (GPS)",
-"Camera": "Kamera",
-"Spare Batteries": "Reservbatterier",
-"Earbuds": "Hörlurar (in-ear)",
-"Dynamo Charger": "Dynamoladdare",
-"Solar Panel": "Solpanel",
-"E-reader": "Läsplatta",
-"Smartwatch Charger": "Klockladdare",
-"Drone": "Drönare",
-"Paper Map": "Papperskarta",
-"Compass": "Kompass",
-"Route Notes / Cue Sheet": "Ruttanteckningar",
-"Guidebook Pages": "Guideboksidor",
-"Map Case (waterproof)": "Kartfodral (vattentätt)",
-"Bib Shorts": "Bibshorts",
-"Jersey": "Cykeltröja",
-"Base Layer": "Underställ",
-"Cycling Socks": "Cykelstrumpor",
-"Gloves (mitts)": "Cykelhandskar (korta)",
-"Helmet": "Hjälm",
-"Cycling Shoes": "Cykelskor",
-"Sunglasses": "Solglasögon",
-"Cap": "Keps",
-"Arm Warmers": "Armvärmare",
-"Leg Warmers": "Benvärmare",
-"Buff / Neck Tube": "Tubhalsduk (buff)",
-"Camp Shirt": "Lägerskjorta",
-"Camp Shorts": "Lägershorts",
-"Camp Pants": "Lägerbyxor",
-"Underwear": "Underkläder",
-"Warm Socks": "Varma strumpor",
-"Down Jacket": "Dunjacka",
-"Fleece": "Fleecetröja",
-"Beanie": "Mössa",
-"Warm Gloves": "Varma handskar",
-"Sandals / Camp Shoes": "Sandaler / lägerskor",
-"Swim Shorts": "Badbyxor",
-"Travel Towel": "Resehandduk",
-"Hi-vis Vest": "Reflexväst",
-"Rain Jacket": "Regnjacka",
-"Rain Pants": "Regnbyxor",
-"Shoe Covers": "Skoöverdrag",
-"Waterproof Gloves": "Vattentäta handskar",
-"Saddle Rain Cover": "Sadelskydd (regn)",
-"Dry Bags (spare)": "Vattentäta packpåsar (extra)",
-"Poncho": "Regnponcho",
-"Helmet Rain Cover": "Hjälmregnskydd",
-"Toothbrush": "Tandborste",
-"Toothpaste (mini)": "Tandkräm (mini)",
-"Soap Bar (multi-use)": "Tvål (multibruk)",
-"Deodorant (mini)": "Deodorant (mini)",
-"Sunscreen": "Solkräm",
-"Lip Balm SPF": "Läppbalsam (SPF)",
-"Chamois Cream": "Sittkräm",
-"Wet Wipes": "Våtservetter",
-"Toilet Paper": "Toalettpapper",
-"Trowel": "Liten spade",
-"Hand Sanitizer": "Handsprit",
-"Nail Clippers": "Nagelklippare",
-"Razor": "Rakhyvel",
-"Comb": "Kam",
-"Contact Lenses / Solution": "Kontaktlinser / vätska",
-"Insect Repellent": "Myggmedel",
-"Microfibre Cloth": "Mikrofiberduk",
-"First Aid Kit": "Första hjälpen-kit",
-"Plasters": "Plåster",
-"Blister Patches": "Skavsårsplåster",
-"Painkillers": "Värktabletter",
-"Antihistamines": "Antihistaminer",
-"Antiseptic Wipes": "Antiseptiska servetter",
-"Bandage": "Förband",
-"Tick Tweezers": "Fästingpincett",
-"Personal Meds": "Personliga mediciner",
-"Rehydration Salts": "Vätskeersättning",
-"Emergency Blanket": "Räddningsfilt",
-"Imodium": "Imodium (stoppande)",
-"Tape (medical)": "Kirurgtejp",
-"Pasta / Rice": "Pasta / ris",
-"Instant Noodles": "Snabbnudlar",
-"Oats": "Havregryn",
-"Energy Bars": "Energibars",
-"Gels": "Energigels",
-"Trail Mix": "Nötmix",
-"Dried Fruit": "Torkad frukt",
-"Chocolate": "Choklad",
-"Instant Coffee": "Snabbkaffe",
-"Tea Bags": "Tepåsar",
-"Milk Powder": "Mjölkpulver",
-"Sugar / Honey": "Socker / honung",
-"Salt & Spices": "Salt & kryddor",
-"Olive Oil (mini)": "Olivolja (mini)",
-"Canned Fish": "Fiskkonserv",
-"Tortillas / Bread": "Tortillas / bröd",
-"Peanut Butter": "Jordnötssmör",
-"Cheese": "Ost",
-"Salami": "Salami",
-"Dehydrated Meals": "Frystorkad mat",
-"Emergency Snack Stash": "Nödsnacks",
-"Passport / ID": "Pass / ID",
-"Wallet": "Plånbok",
-"Cash": "Kontanter",
-"Bank Card": "Bankkort",
-"Insurance Card": "Försäkringskort",
-"Emergency Contacts Note": "Nödkontakter (lapp)",
-"Train Tickets": "Tågbiljetter",
-"House Keys": "Husnycklar",
-"Bike Lock Key": "Cykellåsnyckel",
-"Photocopies of Docs": "Kopior av dokument",
-"Bike Lock": "Cykellås",
-"Cable Lock (light)": "Vajerlås (lätt)",
-"Camp Chair (mini)": "Lägerstol (mini)",
-"Sit Pad": "Sittunderlag",
-"Clothesline": "Tvättlina",
-"Carabiners": "Karbinhakar",
-"Bungee Cords": "Bagageremmar (bungee)",
-"Voile Straps": "Voile-remmar",
-"Lantern (mini)": "Lykta (mini)",
-"Mosquito Coil": "Myggspiral",
-"Multifuel Bottle": "Bränsleflaska",
-"Book": "Bok",
-"Journal + Pen": "Dagbok + penna",
-"Playing Cards": "Kortlek",
-"Bluetooth Speaker": "Bluetooth-högtalare",
-"Flask (whisky)": "Plunta (whisky)",
-"Harmonica": "Munspel",
-"Fishing Kit (mini)": "Fiskeset (mini)",
-"Binoculars": "Kikare",
-"Hammock Chair": "Hängstol",
-"Frisbee": "Frisbee",
-"Pillow (real one)": "Kudde (en riktig)",
-"Mascot": "Maskot",
-"Thermos": "Termos",
-"Fuel Tablets": "Bränsletabletter",
-"Foldable Cup": "Hopfällbar mugg",
-"Presta Adapter": "Presta-adapter",
-"Grease (mini)": "Fett (mini)",
-"Torque Key": "Momentnyckel",
-"Brake Cable": "Bromsvajer",
-"Spare Straps": "Extra spännband",
-"Spare Buckles": "Extra spännen",
-"Phone Mount": "Mobilhållare",
-"Action Camera": "Actionkamera",
-"Mini Tripod": "Ministativ",
-"Memory Cards": "Minneskort",
-"Travel Adapter": "Reseadapter",
-"SIM / eSIM": "SIM / eSIM",
-"Long-sleeve Jersey": "Långärmad tröja",
-"Wind Vest": "Vindväst",
-"Sleepwear": "Sovkläder",
-"Belt": "Bälte",
-"Spare Bib Shorts": "Extra bibshorts",
-"Waterproof Socks": "Vattentäta strumpor",
-"Clip-on Mudguard": "Stänkskärm (clip-on)",
-"Dental Floss": "Tandtråd",
-"Laundry Soap (travel)": "Tvättmedel (rese)",
-"Mirror (mini)": "Spegel (mini)",
-"After Sun": "After sun",
-"Eye Drops": "Ögondroppar",
-"Burn Gel": "Brännskadegel",
-"Wound Closure Strips": "Sårförslutningstejp",
-"Couscous": "Couscous",
-"Red Lentils": "Röda linser",
-"Müsli": "Müsli",
-"Crispbread": "Knäckebröd",
-"Hot Chocolate": "Varm choklad",
-"Jam (mini)": "Sylt (mini)",
-"Sports Drink Powder": "Sportdryckspulver",
-"Driver's License": "Körkort",
-"Vaccination Card": "Vaccinationskort",
-"Ferry Tickets": "Färjebiljetter",
-"Camping Card": "Campingkort",
-"Firesteel": "Eldstål",
-"Rope 5 m": "Rep 5 m",
-"Tealight Candles": "Värmeljus",
-"Kubb (mini)": "Kubb (mini)",
-"Travel Game": "Resespel",
-"Swimming Goggles": "Simglasögon",
-"Coffee Grinder (mini)": "Kaffekvarn (mini)",
-"Sketchbook": "Skissbok",
-"Chain Wear Checker": "Kedjeslitagemätare",
-"Cassette Tool (mini)": "Kassettverktyg (mini)",
-"Degreaser (mini)": "Avfettning (mini)",
-"Pressure Gauge": "Däcktrycksmätare",
-"Steel Wire": "Ståltråd",
-"Drivetrain Brush": "Kedjeborste",
-"Shock Pump": "Dämparpump",
-"Brake Bleed Kit (mini)": "Luftningskit (mini)",
-"Spare Chain": "Reservkedja",
-"Rim Tape": "Fälgtejp",
-"Tubeless Valves": "Tubeless-ventiler",
-"Shifter Battery (spare)": "Växelbatteri (reserv)",
-"Brake Fluid (mini)": "Bromsvätska (mini)",
-"Spare Jockey Wheel": "Rulltrissa (reserv)",
-"Bell": "Ringklocka",
-"Bar Mirror": "Backspegel",
-"Bottle Cage (extra)": "Flaskhållare (extra)",
-"Bar Tape": "Styrlinda",
-"Aero Bars": "Aerobågar",
-"Reflective Vest": "Reflexväst",
-"Spoke Reflectors": "Ekerreflexer",
-"Kickstand (clip-on)": "Cykelstöd (clip-on)",
-"Frame Protection Tape": "Ramskyddstejp",
-"Cycling Glasses (clear lens)": "Cykelglasögon (klara)",
-"Top Tube Protector": "Ramskydd överrör",
-"Cadence/Speed Sensor": "Kadens-/fartsensor",
-"Heart Rate Strap": "Pulsband",
-"Bike Cover (light)": "Cykelöverdrag (lätt)"
+const DATA={
+  klader:["Hjälm + cykelglasögon","Buff + keps","Bibs ×2 (nytvättade)","Cykeltröjor ×2 (+ långärmad, 2024?)","Cykelhandskar (med/utan skydd + vinter)","Regnställ (jacka, byxor, skoskydd)","Värmelager (fleece, arm-/benvärmare, väst)","Ullunderställ","T-shirts + sovkläder","Kalsonger + strumpor (låga & höga)","Byxor (orange, gröna, linne, bad)","Skor (MTB + flip flops)"],
+  verktyg:["Multiverktyg (kniv för mat) + insexnycklar","Cykelpump + ventiladapter (bensinmack)","Punktering (slangar ×4, däckavtagare, lagningssats, pluggar + tätvätska)","Drivlina (quick links, kedjeolja)","Reservdelar (hängare, bromsklossar, ekrar + ekernyckel)","Fixarkit (skruv, buntband, silvertejp, trasa)","Spännremmar (surra tält/packning)","Lås (har vajer – ev. köp bygellås)","Innan avfärd: rengjord drivlina + kollade bromsar"],
+  camping:["Tält + extra pinnar & lina","Sovsystem (sovsäck, liggunderlag, kudde)","Pannlampa + extra batteri","Kök (brännare + gas, kastrull, tändare + tändstål)","Äta (kåsa mat, kåsa dryck, spork)","Disk (borste + naturdiskmedel)","Vatten (flaska + reningstabletter)","Drybags","Matsäck dag 1 + daglig bärs","Nödvisselpipa (orange)"],
+  hygien:["Tandvård (borste, kräm, tråd, bettskena)","Solskydd (solkräm + cerat SPF)","Skavskydd (cykelkräm varje pass, sudocrem)","Tvätt (Dr Bronner, tvättmedel, handduk)","Toa & rent (toapapper, våtservetter, handsprit)","Sjukvård (alsolsprit + material, plåster, myggmedel)","Värk (Alvedon, Voltaren, Tiger balsam)","Mage (diarrétabletter, vätskeersättning – köp där)","Kosttillskott","Innan avfärd: rakat + klippta naglar"],
+  elektronik:["Telefon + mobilladdare","Powerbank + kabel","Garmin-klocka + laddare","Lampor fram & bak (laddbara)","EU-kontakt (typ C/E)","Offline-kartor nedladdade"],
+  dokument:["Pass + ID-kort","Plånbok (kort + kontanter PLN & CZK)","EU-sjukförsäkringskort (EHIC)","Polferries-biljett (offline)","Tågbiljett Praha (offline)","Rese-/cykelförsäkring","Hemnycklar"],
 };
-
-/* item display name = Swedish */
-function nameSv(d){ return d.sv || SV[d.name] || d.name; }
-
-/* ---------- BAG PRESETS ---------- */
-const BAG_TYPES = [
-  {id:"saddle",   name:"SADDLE BAG",     emoji:"🪶"},
-  {id:"frame",    name:"FRAME BAG",      emoji:"🔻"},
-  {id:"toptube",  name:"TOP TUBE BAG",   emoji:"🍫"},
-  {id:"barroll",  name:"HANDLEBAR ROLL", emoji:"🌯"},
-  {id:"stem",     name:"STEM BAG",       emoji:"☕"},
-  {id:"forkL",    name:"FORK CAGE L",    emoji:"🍴"},
-  {id:"forkR",    name:"FORK CAGE R",    emoji:"🍴"},
-  {id:"panL",     name:"PANNIER L",      emoji:"🧳"},
-  {id:"panR",     name:"PANNIER R",      emoji:"🧳"},
-  {id:"backpack", name:"BACKPACK",       emoji:"🎒"}
-];
-const DEFAULT_BAGS = {saddle:true, frame:true, toptube:true, barroll:true, stem:false,
-                      forkL:false, forkR:false, panL:false, panR:false, backpack:false};
-const BASE_SLOTS = 10, ROW = 5;
-
-/* ---------- STATE ---------- */
-const $ = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-
-let S = null;          // shared trip state (synced)
-let me = null;         // "r1" | "r2" (local identity)
-let packMode = false;
-let refocus = null;
-let fb = {app:null, ref:null, connected:false, suppress:false};
-
-function blankState(trip, date, n1, n2){
-  return {
-    tripName: trip || "BIKEPACKING TRIP",
-    startDate: date || "",
-    riders: {r1:{name:n1||"Rider 1"}, r2:{name:n2||"Rider 2"}},
-    bikes: {
-      r1:{bags: structuredClone(DEFAULT_BAGS)},
-      r2:{bags: structuredClone(DEFAULT_BAGS)}
-    },
-    inv: { /* "r1|saddle": { "0": {id,qty,packed} } — flattened slot maps */ },
-    pile: {},          // uid -> {id, qty}
-    personal: { r1:{}, r2:{} },  // uid -> {id, qty, packed}
-    custom: {},        // cid -> item def
-    rev: 0
-  };
-}
-
-/* every item def lookup goes through this (library + custom) */
-function def(id){
-  if(LIB[id]) return LIB[id];
-  if(S && S.custom && S.custom[id]) return S.custom[id];
-  return {name:"???", emoji:"❓", cat:"Custom", group:false};
-}
-
-const bagKey = (rider,bag) => rider + "|" + bag;
-function bagSlots(rider,bag){
-  if(!S.inv) S.inv = {};
-  if(!S.inv[bagKey(rider,bag)]) S.inv[bagKey(rider,bag)] = {};
-  return S.inv[bagKey(rider,bag)];
-}
-function slotCount(slots){
-  const idxs = Object.keys(slots||{}).map(Number);
-  const used = idxs.length;
-  const maxIdx = idxs.length ? Math.max(...idxs) : -1;
-  let n = Math.max(BASE_SLOTS, Math.ceil((maxIdx+2)/ROW)*ROW);
-  while(used >= n) n += ROW;       // always at least one empty slot
-  return n;
-}
-function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-
-/* ---------- PERSISTENCE & SYNC ---------- */
-const LS = {
-  state:"bp_state", me:"bp_me", fbcfg:"bp_fbcfg", fbtrip:"bp_fbtrip"
+const EXTRA={
+  klader:["Reservglasögon","Solhatt","Regnbyxor","Skoöverdrag","Tunna vantar","Halsduk","Reflexväst","Mössa","Cykeltights","Extra strumpor"],
+  verktyg:["Reservkedja","Kedjelås","Insexnycklar","Pumpadapter","Kedjeborste","Eltejp","Buntband extra","Ventiladapter","Smörjspray","Reservbult"],
+  camping:["Termos","Snabbkaffe","Sittunderlag","Myggnät","Tält-lagningslappar","Extra gaspatron","Diskhandduk","Energibars / snacks","Elektrolyttabletter","Stormkök-tändare","Vattenflaska extra"],
+  hygien:["Öronproppar","Läppcerat","Värktabletter extra","Blåsplåster extra","Efter-sol / aloe vera","Necessär","Rakhyvel","Deodorant","Toapapper","Handkräm"],
+  elektronik:["Adapterkabel","Hörlurar","Dynamoladdare","Powerbank-kabel","Extra laddare","GoPro + fäste","Minneskort","Cykeldator-fäste"],
+  dokument:["Vaccinationsintyg (TBE)","Körkort","Reservkort","Kontanter EUR","Försäkringspapper","Nödkontakter","Kopior på pass"],
 };
+const LIBRARY={};
+CATS.forEach(c=>{ LIBRARY[c.id]=[...DATA[c.id],...EXTRA[c.id]].filter((v,i,a)=>a.indexOf(v)===i); });
 
-/* ---------- BAKED-IN TRIP (preconfigured for Eric & Wojtek) ---------- */
-const BAKED_RIDERS = ["Eric", "Wojtek"];
-const BAKED_TRIP_NAME = "ERIC & WOJTEK";
-const BAKED_TRIP_ID = "eric-wojtek-2026-k7x2q9";
-const BAKED_FB_CONFIG = JSON.stringify({
-  apiKey: "AIzaSyClIVDpvXiUFNemcFTNuH6xUU0YSF5ZI2A",
-  authDomain: "bikepack-6dc07.firebaseapp.com",
-  databaseURL: "https://bikepack-6dc07-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "bikepack-6dc07",
-  storageBucket: "bikepack-6dc07.firebasestorage.app",
-  messagingSenderId: "208793377388",
-  appId: "1:208793377388:web:a7d45e66ff4c12552c9649"
-});
+/* ---------- state ---------- */
+/* ---------- persistence: Firebase realtime (för driftsatt sida) + lokal reserv ---------- */
+const DB_ROOT='trips'; // samma rot som inventory-appen — packlistan blir en egen trip-nod här
+/* === inbakad config + trip (auto-ansluter, ingen manuell inklistring) === */
+const BAKED_FB_CONFIG = {apiKey:"AIzaSyClIVDpvXiUFNemcFTNuH6xUU0YSF5ZI2A", authDomain:"bikepack-6dc07.firebaseapp.com", databaseURL:"https://bikepack-6dc07-default-rtdb.europe-west1.firebasedatabase.app", projectId:"bikepack-6dc07", storageBucket:"bikepack-6dc07.firebasestorage.app", messagingSenderId:"208793377388", appId:"1:208793377388:web:a7d45e66ff4c12552c9649"};
+const BAKED_TRIP_ID = 'packlista-eric-wojtek-2026-k7x2q9';   // egen nod, krockar inte med inventarie-trippen
+const LS={ get(k){try{return localStorage.getItem(k);}catch(e){return null;}}, set(k,v){try{localStorage.setItem(k,v);}catch(e){}} };
+let tripId = LS.get('pl_trip') || BAKED_TRIP_ID;
+let fbConfig = (function(){ try{ return JSON.parse(LS.get('pl_fb_config')||'null'); }catch(e){ return null; } })() || BAKED_FB_CONFIG;
+let mode = LS.get('pl_mode') || 'firebase';   // 'firebase' | 'local' — auto-synk som default
+let dbRef=null, lastSerialized='';
 
-const store = {
-  get(k){ try{ return localStorage.getItem(k); }catch(e){ return (store._m||{})[k] ?? null; } },
-  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ (store._m = store._m||{})[k]=v; } },
-  del(k){ try{ localStorage.removeItem(k); }catch(e){ if(store._m) delete store._m[k]; } }
-};
+let state={items:[],mode:'all'};
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let saveTimer=null, storageOK=true, activeIdx=0, activeSugg=-1;
+const uid=()=>'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function seed(){ state.items=[]; CATS.forEach(c=>DATA[c.id].forEach(t=>state.items.push({id:uid(),text:t,checked:false,cat:c.id,custom:false}))); }
+function visible(){ return true; }
 
-function saveLocal(){ store.set(LS.state, JSON.stringify(S)); }
+function snapshot(){ return JSON.stringify({items:state.items,mode:state.mode||'all'}); }
+function applyData(v){ if(v&&Array.isArray(v.items)){ state={items:v.items,mode:v.mode||'all'}; return true; } return false; }
 
-function commit(){
-  S.rev = (S.rev||0) + 1;
-  saveLocal();
-  if(fb.connected && fb.ref){
-    fb.suppress = true;
-    fb.ref.set(S).then(()=>{ fb.suppress = false; })
-                 .catch(e=>{ fb.suppress=false; toast("⚠ sync write failed: "+e.message); });
-  }
-  render();
-}
+/* local backend */
+function localKey(){ return 'pl_data:'+tripId; }
+function saveLocal(){ LS.set(localKey(), snapshot()); }
+function loadLocal(){ const raw=LS.get(localKey()); if(raw){ try{ return applyData(JSON.parse(raw)); }catch(e){} } return false; }
 
-function connectFirebase(cfgText, tripId){
-  let cfg;
-  try{ cfg = JSON.parse(cfgText); }
-  catch(e){ $("#fb-status").textContent = "Config is not valid JSON."; return; }
-  if(!cfg.databaseURL){
-    $("#fb-status").textContent = "Config needs a databaseURL field (enable Realtime Database in Firebase console).";
-    return;
-  }
-  if(!tripId){ $("#fb-status").textContent = "Pick a Trip ID."; return; }
+/* firebase backend */
+function fbConnect(config, trip, silent){
   try{
-    if(fb.app){ fb.app.delete(); fb.app = null; }
-    fb.app = firebase.initializeApp(cfg, "bp"+Date.now());
-    const db = fb.app.database();
-    fb.ref = db.ref("trips/" + tripId.replace(/[.#$\[\]\/]/g,"-"));
-    store.set(LS.fbcfg, cfgText);
-    store.set(LS.fbtrip, tripId);
+    if(!window.firebase || !firebase.database){ throw new Error('Firebase-biblioteket laddades inte (ingen nätverksanslutning?)'); }
+    fbConfig=config; if(trip) tripId=trip;
+    LS.set('pl_fb_config', JSON.stringify(config)); LS.set('pl_trip', tripId);
+    if(!firebase.apps.length) firebase.initializeApp(config);
+    if(dbRef){ dbRef.off(); dbRef=null; }
+    dbRef=firebase.database().ref(DB_ROOT+'/'+tripId);
+    mode='firebase'; LS.set('pl_mode','firebase');
+    dbRef.on('value', snap=>{
+      const v=snap.val();
+      if(v && Array.isArray(v.items)){
+        const ser=JSON.stringify({items:v.items,mode:v.mode||'all'});
+        if(ser!==lastSerialized){ applyData(v); lastSerialized=ser; renderAll(); flashSync('Live ↻'); }
+        setSync('ok');
+      } else if(v==null){ seed(); renderAll(); commit(true); }   // tom trip -> skapa packlistan
+      else { setSync('offline'); if(!silent) alert('Trip-ID:t "'+tripId+'" innehåller redan annan data (inte en packlista).\nVälj ett nytt Trip-ID så att inget skrivs över.'); }
+    }, err=>{ setSync('offline'); });
+    setSync('ok'); return true;
+  }catch(e){ setSync('offline'); if(!silent) alert('Kunde inte ansluta till Firebase:\n'+e.message); return false; }
+}
+function goLocal(){
+  mode='local'; LS.set('pl_mode','local');
+  if(dbRef){ dbRef.off(); dbRef=null; }
+  if(!loadLocal()){ seed(); saveLocal(); }
+  lastSerialized=snapshot(); renderAll(); setSync('ok'); goTo(0);
+}
 
-    fb.ref.once("value").then(snap=>{
-      const remote = snap.val();
-      if(remote && remote.riders){
-        S = normalize(remote);          // join existing trip
-        saveLocal();
-      }else if(S){
-        fb.ref.set(S);                  // first device seeds the trip
-      }
-      fb.connected = true;
-      $("#fb-status").textContent = "Connected! Both devices now share trip \"" + tripId + "\".";
-      updateSyncDot();
-      fb.ref.on("value", s2=>{
-        if(fb.suppress) return;
-        const v = s2.val();
-        if(v && v.riders && (!S || (v.rev||0) !== (S.rev||0))){
-          S = normalize(v); saveLocal(); render();
-        }
-      });
-      db.ref(".info/connected").on("value", s3=>{
-        fb.connected = !!s3.val(); updateSyncDot();
-      });
-      render();
-    }).catch(e=>{
-      $("#fb-status").textContent = "Could not reach database: " + e.message;
+/* unified save */
+function scheduleSave(){ setSync('saving'); clearTimeout(saveTimer); saveTimer=setTimeout(()=>commit(false),400); }
+function commit(silent){
+  saveTimer=null; const data={items:state.items,mode:state.mode||'all'}; lastSerialized=JSON.stringify(data);
+  if(mode==='firebase' && dbRef){ dbRef.set(data).then(()=>setSync('ok')).catch(()=>setSync('offline')); }
+  else { saveLocal(); if(!silent) setSync('ok'); }
+}
+async function forceResync(){
+  setSync('saving');
+  if(mode==='firebase' && dbRef){
+    try{ const snap=await dbRef.once('value'); const v=snap.val();
+      if(v&&applyData(v)){ lastSerialized=JSON.stringify({items:state.items,mode:state.mode||'all'}); renderAll(); }
+      setSync('ok'); flashSync('Synkad ✓');
+    }catch(e){ setSync('offline'); }
+  } else { loadLocal(); renderAll(); setSync('ok'); flashSync('Läst lokalt'); }
+}
+function flashSync(msg){ const t=document.getElementById('sync-text'); if(!t) return; t.textContent=msg; setTimeout(()=>setSync(storageOK?'ok':'offline'),1600); }
+function setSync(m){ const el=document.getElementById('sync'),t=document.getElementById('sync-text'); if(!el) return;
+  storageOK = m!=='offline';
+  el.className='sync'+(m==='saving'?' saving':m==='offline'?' offline':'');
+  t.textContent = m==='saving' ? 'Sparar…'
+    : m==='offline' ? 'Frånkopplad'
+    : mode==='firebase' ? 'Live · trip: '+tripId
+    : 'Lokalt (denna enhet) · '+tripId; }
+
+/* ---------- build shell ---------- */
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function buildShell(){
+  const tabs=document.getElementById('tabs'), track=document.getElementById('track');
+  tabs.innerHTML=''; track.innerHTML='';
+  CATS.forEach((c,i)=>{
+    const b=document.createElement('button');
+    b.className='tab'+(i===0?' active':''); b.dataset.idx=i;
+    b.innerHTML=`<span>${c.label}</span><span class="t-badge" id="badge-${c.id}">0</span>`;
+    b.addEventListener('click',()=>goTo(i));
+    tabs.appendChild(b);
+    const p=document.createElement('div'); p.className='panel';
+    p.innerHTML=`<div class="panel-inner"><div class="list" id="list-${c.id}"></div></div>`;
+    track.appendChild(p);
+  });
+}
+
+/* ---------- render ---------- */
+function catItems(cat){
+  const arr=state.items.filter(i=>i.cat===cat&&visible(i));
+  return [...arr.filter(i=>!i.checked),...arr.filter(i=>i.checked)];
+}
+function itemEl(it){
+  const el=document.createElement('div');
+  el.className='item'+(it.checked?' done':''); el.dataset.id=it.id;
+  el.innerHTML=`<input type="checkbox" class="cbox" ${it.checked?'checked':''} aria-label="Packad: ${escapeHtml(it.text)}">
+    <div class="it-text">${escapeHtml(it.text)}</div>
+    <button class="del" aria-label="Ta bort ${escapeHtml(it.text)}">×</button>`;
+  el.querySelector('.cbox').addEventListener('change',()=>toggle(it.id));
+  el.querySelector('.del').addEventListener('click',()=>remove(it.id));
+  return el;
+}
+function renderPanel(cat,animate){
+  const listEl=document.getElementById('list-'+cat); if(!listEl) return;
+  const old={};
+  if(animate&&!reducedMotion){ listEl.querySelectorAll('.item').forEach(el=>{ old[el.dataset.id]=el.getBoundingClientRect(); }); }
+  const items=catItems(cat);
+  listEl.innerHTML='';
+  if(items.length===0){ listEl.innerHTML='<div class="empty">Inga artiklar i den här kategorin ännu.</div>'; }
+  else items.forEach(it=>listEl.appendChild(itemEl(it)));
+  if(animate&&!reducedMotion){
+    listEl.querySelectorAll('.item').forEach(el=>{
+      const o=old[el.dataset.id];
+      if(!o){ el.style.opacity='0'; el.style.transform='translateY(-6px)';
+        requestAnimationFrame(()=>{ el.style.transition='opacity .25s ease, transform .25s ease'; el.style.opacity='1'; el.style.transform='none'; }); return; }
+      const n=el.getBoundingClientRect(); const dy=o.top-n.top;
+      if(dy){ el.style.transform='translateY('+dy+'px)'; el.style.transition='none';
+        requestAnimationFrame(()=>{ el.style.transition='transform .34s cubic-bezier(.2,.7,.2,1)'; el.style.transform='none'; }); }
     });
-  }catch(e){
-    $("#fb-status").textContent = "Firebase init failed: " + e.message;
   }
 }
-
-function disconnectFirebase(){
-  if(fb.ref) fb.ref.off();
-  if(fb.app){ try{ fb.app.delete(); }catch(e){} }
-  fb = {app:null, ref:null, connected:false, suppress:false};
-  store.del(LS.fbcfg);
-  $("#fb-status").textContent = "Local mode. Changes stay on this device.";
-  updateSyncDot();
-}
-
-/* firebase strips empty objects — restore expected shapes */
-function normalize(s){
-  s.inv = s.inv || {};
-  s.pile = s.pile || {};
-  s.personal = s.personal || {};
-  s.personal.r1 = s.personal.r1 || {};
-  s.personal.r2 = s.personal.r2 || {};
-  s.custom = s.custom || {};
-  s.bikes = s.bikes || {};
-  ["r1","r2"].forEach(r=>{
-    s.bikes[r] = s.bikes[r] || {bags: structuredClone(DEFAULT_BAGS)};
-    s.bikes[r].bags = s.bikes[r].bags || structuredClone(DEFAULT_BAGS);
+function renderAll(){ CATS.forEach(c=>renderPanel(c.id,false)); updateProgress(); }
+function updateProgress(){
+  const vis=state.items.filter(visible);
+  const total=vis.length, done=vis.filter(i=>i.checked).length;
+  document.getElementById('fill').style.width=(total?Math.round(done/total*100):0)+'%';
+  CATS.forEach(c=>{
+    const arr=state.items.filter(i=>i.cat===c.id&&visible(i));
+    const left=arr.filter(i=>!i.checked).length;
+    const badge=document.getElementById('badge-'+c.id);
+    const tab=badge.closest('.tab');
+    if(arr.length>0&&left===0){ badge.textContent='✓'; tab.classList.add('done'); }
+    else { badge.textContent=left; tab.classList.remove('done'); }
   });
-  return s;
 }
 
-function updateSyncDot(){
-  const d = $("#sync-dot");
-  d.className = "sync-dot " + (fb.connected ? "online" : "local");
-  d.title = fb.connected ? "realtime sync ON" : "local only";
+/* ---------- actions ---------- */
+function toggle(id){ const it=state.items.find(i=>i.id===id); if(!it)return; it.checked=!it.checked; scheduleSave(); renderPanel(it.cat,true); updateProgress(); }
+function remove(id){ const it=state.items.find(i=>i.id===id); if(!it)return; const cat=it.cat; state.items=state.items.filter(i=>i.id!==id); scheduleSave(); renderPanel(cat,true); updateProgress(); }
+function addItem(text){
+  const t=text.trim(); if(!t) return; const cat=CATS[activeIdx].id;
+  const exist=state.items.find(i=>i.cat===cat&&i.text.toLowerCase()===t.toLowerCase());
+  if(exist){ exist.checked=false; state.items=[exist,...state.items.filter(i=>i!==exist)]; }
+  else state.items.unshift({id:uid(),text:t,checked:false,cat,custom:true});
+  scheduleSave(); renderPanel(cat,true); updateProgress();
 }
 
-function toast(msg){
-  const t = $("#toast");
-  t.textContent = msg; t.style.display = "block";
-  clearTimeout(t._h); t._h = setTimeout(()=> t.style.display="none", 2600);
+/* ---------- swipe / tabs ---------- */
+const vp=document.getElementById('viewport');
+function goTo(i){ activeIdx=i; vp.scrollTo({left:i*vp.clientWidth,behavior:reducedMotion?'auto':'smooth'}); setActive(i); }
+function setActive(i){
+  activeIdx=i;
+  document.querySelectorAll('.tab').forEach((t,idx)=>t.classList.toggle('active',idx===i));
+  document.getElementById('add').placeholder='Lägg till i '+CATS[i].label;
+  const at=document.querySelectorAll('.tab')[i]; if(at) at.scrollIntoView({inline:'center',block:'nearest',behavior:reducedMotion?'auto':'smooth'});
 }
-
-/* ---------- DERIVED DATA ---------- */
-function bikeItemIds(rider){           // set of item ids anywhere on a bike
-  const out = new Set();
-  BAG_TYPES.forEach(b=>{
-    if(!S.bikes[rider].bags[b.id]) return;
-    Object.values(bagSlots(rider,b.id)).forEach(e=> out.add(e.id));
+let scrollRaf=null;
+vp.addEventListener('scroll',()=>{
+  if(scrollRaf) return;
+  scrollRaf=requestAnimationFrame(()=>{ scrollRaf=null;
+    const i=Math.round(vp.scrollLeft/vp.clientWidth);
+    if(i!==activeIdx){ buildSugg(''); document.getElementById('add').value=''; setActive(i); }
   });
-  return out;
-}
-function dupeIds(){                     // same item on BOTH bikes
-  const a = bikeItemIds("r1"), b = bikeItemIds("r2");
-  return new Set([...a].filter(x=> b.has(x)));
-}
-function riderProgress(rider){
-  let total = 0, packed = 0;
-  BAG_TYPES.forEach(b=>{
-    if(!S.bikes[rider].bags[b.id]) return;
-    Object.values(bagSlots(rider,b.id)).forEach(e=>{ total++; if(e.packed) packed++; });
+});
+
+/* ---------- smart add ---------- */
+const addEl=document.getElementById('add'), suggEl=document.getElementById('sugg');
+function buildSugg(q){
+  const query=q.trim().toLowerCase(); suggEl.innerHTML=''; activeSugg=-1;
+  if(!query){ suggEl.classList.remove('open'); return; }
+  const cat=CATS[activeIdx].id;
+  const have=new Set(state.items.filter(i=>i.cat===cat).map(i=>i.text.toLowerCase()));
+  const matches=LIBRARY[cat].filter(x=>x.toLowerCase().includes(query)&&!have.has(x.toLowerCase())).slice(0,6);
+  const exact=LIBRARY[cat].some(x=>x.toLowerCase()===query)||have.has(query);
+  const rows=matches.map(m=>({text:m,isNew:false}));
+  if(!exact&&q.trim()) rows.push({text:q.trim(),isNew:true});
+  if(!rows.length){ suggEl.classList.remove('open'); return; }
+  rows.forEach((r,idx)=>{
+    const d=document.createElement('div'); d.className='sugg-item'; d.dataset.idx=idx; d.dataset.text=r.text;
+    d.innerHTML='<span class="si-plus">+</span><span>'+escapeHtml(r.text)+'</span>'+(r.isNew?'<span class="si-new">ny</span>':'');
+    d.addEventListener('mousedown',e=>{ e.preventDefault(); chooseSugg(r.text); });
+    suggEl.appendChild(d);
   });
-  Object.values(S.personal[rider]||{}).forEach(e=>{ total++; if(e.packed) packed++; });
-  return {total, packed};
+  suggEl.classList.add('open');
 }
-
-/* ---------- RENDER ---------- */
-const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-
-
-/* ---------- BIKE DIAGRAM ---------- */
-/* sh = outline shape, fb = fill bounds (for the rising "how full" rect),
-   dt = decorative details (straps, seams), cap = rough capacity in items */
-const BIKE_GEO = {
-  saddle:  {sh:'<path d="M258 86 L198 92 Q182 95 182 103 Q182 112 198 115 L258 118 Q264 102 258 86 Z"/>',
-            dt:'<path d="M216 90 L214 116 M236 88 L235 117"/><ellipse cx="192" cy="103" rx="6" ry="10"/>',
-            fb:{x:182,y:86,w:82,h:32}, cx:224, cy:108, cap:8},
-  frame:   {sh:'<path d="M316 228 L301 140 L442 134 Z"/>',
-            dt:'<path d="M312 196 L412 152"/>',
-            fb:{x:301,y:134,w:141,h:94}, cx:352, cy:184, cap:10},
-  toptube: {sh:'<path d="M352 99 L398 97 Q404 97 404 105 L402 115 L354 117 Q348 108 352 99 Z"/>',
-            fb:{x:348,y:97,w:56,h:20}, cx:377, cy:112, cap:4},
-  barroll: {sh:'<rect x="462" y="66" width="96" height="34" rx="16"/>',
-            dt:'<ellipse cx="470" cy="83" rx="6" ry="14"/><ellipse cx="550" cy="83" rx="6" ry="14"/><path d="M492 67 L492 99 M528 67 L528 99"/>',
-            fb:{x:462,y:66,w:96,h:34}, cx:510, cy:88, cap:8},
-  stem:    {sh:'<circle cx="448" cy="100" r="14"/>',
-            dt:'<path d="M441 89 Q448 86 455 89"/>',
-            fb:{x:434,y:86,w:28,h:28}, cx:448, cy:105, cap:3},
-  forkL:   {sh:'<rect x="492" y="150" width="17" height="46" rx="7"/>',
-            dt:'<path d="M492 165 L509 165 M492 181 L509 181"/>',
-            fb:{x:492,y:150,w:17,h:46}, cx:500, cy:178, cap:3},
-  forkR:   {sh:'<rect x="518" y="164" width="17" height="46" rx="7"/>',
-            dt:'<path d="M518 179 L535 179 M518 195 L535 195"/>',
-            fb:{x:518,y:164,w:17,h:46}, cx:526, cy:192, cap:3},
-  panL:    {sh:'<path d="M80 178 Q80 172 88 172 L128 172 Q136 172 136 178 L136 244 Q136 256 122 256 L94 256 Q80 256 80 244 Z"/>',
-            dt:'<path d="M80 190 L136 190"/><rect x="100" y="176" width="16" height="8" rx="3"/>',
-            fb:{x:80,y:172,w:56,h:84}, cx:108, cy:220, cap:12},
-  panR:    {sh:'<path d="M142 192 Q142 186 149 186 L181 186 Q188 186 188 192 L188 246 Q188 256 176 256 L154 256 Q142 256 142 246 Z"/>',
-            dt:'<path d="M142 202 L188 202"/>',
-            fb:{x:142,y:186,w:46,h:70}, cx:165, cy:228, cap:12},
-  backpack:{sh:'<path d="M252 30 Q252 22 264 22 L286 22 Q298 22 298 30 L298 60 Q298 70 286 70 L264 70 Q252 70 252 60 Z"/>',
-            dt:'<path d="M262 22 Q258 40 262 70 M288 22 Q292 40 288 70"/>',
-            fb:{x:252,y:22,w:46,h:48}, cx:275, cy:51, cap:10}
-};
-
-function spokes(cx, cy, n, r1, r2){
-  let out = "";
-  for(let i=0;i<n;i++){
-    const a = (Math.PI*2/n)*i;
-    out += `<line x1="${(cx+Math.cos(a)*r1).toFixed(1)}" y1="${(cy+Math.sin(a)*r1).toFixed(1)}" x2="${(cx+Math.cos(a)*r2).toFixed(1)}" y2="${(cy+Math.sin(a)*r2).toFixed(1)}"/>`;
-  }
-  return out;
-}
-
-function bikeSVG(r){
-  const shapes = BAG_TYPES.map(b=>{
-    const g = BIKE_GEO[b.id]; if(!g) return "";
-    const on = !!S.bikes[r].bags[b.id];
-    let cnt = "", fillRect = "";
-    if(on){
-      const used = Object.keys(bagSlots(r,b.id)).length;
-      if(used) cnt = `<text x="${g.cx}" y="${g.cy}" text-anchor="middle">${used}</text>`;
-      const frac = Math.min(1, used/(g.cap||8));
-      if(frac>0){
-        const fh = Math.max(3, Math.round(g.fb.h*frac));
-        fillRect = `<rect class="bagfill" clip-path="url(#cl-${r}-${b.id})" x="${g.fb.x}" y="${g.fb.y+g.fb.h-fh}" width="${g.fb.w}" height="${fh}"/>`;
-      }
-    }
-    return `<g class="bagshape ${on?"on":"off"}" data-bagshape="${b.id}" data-rider="${r}">
-      <defs><clipPath id="cl-${r}-${b.id}">${g.sh}</clipPath></defs>
-      <g class="bagoutline">${g.sh}</g>${fillRect}
-      ${g.dt?`<g class="bagdetail">${g.dt}</g>`:""}${cnt}</g>`;
-  }).join("");
-  return `<svg class="bike-svg" viewBox="0 0 700 305">
-    <ellipse class="ground" cx="155" cy="297" rx="72" ry="7"/>
-    <ellipse class="ground" cx="548" cy="297" rx="72" ry="7"/>
-    <g class="spokes">${spokes(155,235,14,7,48)}${spokes(548,235,14,7,48)}</g>
-    <circle class="tire" cx="155" cy="235" r="57"/><circle class="tire" cx="548" cy="235" r="57"/>
-    <circle class="rim" cx="155" cy="235" r="49"/><circle class="rim" cx="548" cy="235" r="49"/>
-    <circle class="hub" cx="155" cy="235" r="6"/><circle class="hub" cx="548" cy="235" r="6"/>
-    <g class="drive">
-      <circle cx="320" cy="238" r="17"/>
-      <circle cx="155" cy="235" r="8"/>
-      <path d="M320 238 L338 261 M338 261 L348 261 M328 261 L338 261"/>
-    </g>
-    <g class="chain"><path d="M322 221 L158 227 M322 255 L158 243"/></g>
-    <g class="tubes">
-      <path d="M320 238 L282 122"/>
-      <path d="M282 122 L466 110"/>
-      <path d="M320 238 L478 142"/>
-      <path d="M466 110 L482 148"/>
-      <path d="M482 148 Q500 178 548 235"/>
-      <path d="M155 235 L282 122"/>
-      <path d="M155 235 L320 238"/>
-      <path d="M282 122 L276 98"/>
-      <path d="M466 110 L458 96 L448 98"/>
-    </g>
-    <g class="tubes-hi"><path d="M318 234 L284 126 M286 120 L462 109"/></g>
-    <path class="saddlepart" d="M246 92 Q276 80 308 90 Q300 98 276 98 Q254 98 246 92 Z"/>${shapes}</svg>`;
-}
-
-function bagShapeClick(r, bid){
-  if(packMode){ toast("turn PACKING off to rearrange"); return; }
-  const bt = BAG_TYPES.find(b=>b.id===bid);
-  if(!S.bikes[r].bags[bid]){
-    S.bikes[r].bags[bid] = true; commit();
-    toast(bt.name + " added to " + S.riders[r].name + "'s bike");
-    return;
-  }
-  const el = document.getElementById("bag-"+r+"-"+bid);
-  if(el){
-    el.scrollIntoView && el.scrollIntoView({behavior:"smooth", block:"center"});
-    el.classList.add("flash");
-    setTimeout(()=> el.classList.remove("flash"), 1300);
-  }
-}
-
-
-/* ---------- LIST VIEW ---------- */
-function listRowHTML(e, attrs, dupes){
-  const d = def(e.id);
-  const sv = d.sv || SV[d.name] || "";
-  const a = Object.entries(attrs).map(([k,v])=>`data-${k}="${esc(v)}"`).join(" ");
-  const dupe = dupes && dupes.has(e.id) && attrs.zone==="bag" ? `<span class="li-dupe">!</span>` : "";
-  const grp = d.group ? `<span class="li-grp">🤝</span>` : "";
-  const chk = attrs.zone==="pile" ? "" : `<span class="li-chk" data-lact="pack">${e.packed?"☑":"☐"}</span>`;
-  const toPile = attrs.zone==="pile" ? "" : `<button data-lact="pile" title="back to pile">↩</button>`;
-  return `<div class="li ${e.packed?"done":""}" ${a}><span class="li-drag" title="dra för att flytta">⠿</span>${chk}<span class="li-ico">${d.emoji}</span>
-    <span class="li-name">${esc(nameSv(d))}</span>
-    ${(e.qty||1)>1?`<span class="li-qty">×${e.qty}</span>`:""}${grp}${dupe}
-    <span class="li-btns">
-      <button data-lact="minus" title="one less">−</button>
-      <button data-lact="plus" title="one more">+</button>
-      ${toPile}
-      <button data-lact="del" title="bin it">×</button>
-    </span></div>`;
-}
-function quickAddHTML(rider, bag, ph){
-  return `<input class="quickadd" placeholder="${ph}" data-rider="${rider}" data-bag="${bag}" autocomplete="off">`;
-}
-function allItems(){ return Object.assign({}, LIB, S.custom||{}); }
-
-/* put one of item `id` into a bag / pile / pockets, stacking when possible */
-function addItemTo(r, bag, id){
-  if(bag==="__pile"){
-    const same = Object.values(S.pile).find(e=> e.id===id);
-    if(same){ same.qty = (same.qty||1)+1; } else S.pile[uid()] = {id, qty:1};
-  }
-  else if(bag==="__personal"){
-    const same = Object.values(S.personal[r]).find(e=> e.id===id);
-    if(same){ same.qty = (same.qty||1)+1; } else S.personal[r][uid()] = {id, qty:1, packed:false};
-  }
-  else{
-    const slots = bagSlots(r,bag);
-    const same = Object.values(slots).find(e=> e.id===id);
-    if(same){ same.qty = (same.qty||1)+1; }
-    else{ const n = slotCount(slots); for(let i=0;i<n;i++){ if(!slots[i]){ slots[i]={id, qty:1, packed:false}; break; } } }
-  }
-  refocus = {r: r||"", b: bag};
-  commit();
-}
-
-/* Enter in a quick-add field: exact match > first partial match > create custom */
-function quickAdd(input){
-  const txt = input.value.trim(); if(!txt || !S) return;
-  const all = allItems(), q = txt.toLowerCase();
-  let id = Object.keys(all).find(k=>
-    nameSv(all[k]).toLowerCase()===q || all[k].name.toLowerCase()===q);
-  if(!id) id = Object.keys(all).find(k=>
-    nameSv(all[k]).toLowerCase().startsWith(q) || all[k].name.toLowerCase().startsWith(q));
-  if(!id) id = Object.keys(all).find(k=>
-    nameSv(all[k]).toLowerCase().includes(q) || all[k].name.toLowerCase().includes(q));
-  if(!id){
-    id = "c"+uid();
-    S.custom[id] = {name:txt, emoji:"📦", cat:"Custom", group:false};
-    toast("ny egen pryl: " + txt);
-  }
-  input.value = "";
-  addItemTo(input.dataset.rider, input.dataset.bag, id);
-}
-
-function renderBikes(){
-  const dupes = dupeIds();
-  $("#bikes-row").innerHTML = ["r1","r2"].map(r=>{
-    const p = riderProgress(r);
-    const pct = p.total ? Math.round(p.packed/p.total*100) : 0;
-    const bagsHtml = BAG_TYPES.filter(b=> S.bikes[r].bags[b.id]).map(b=>{
-      const slots = bagSlots(r,b.id);
-      const used = Object.keys(slots).length;
-      const rows = Object.entries(slots)
-        .sort((x,y)=> nameSv(def(x[1].id)).localeCompare(nameSv(def(y[1].id)), "sv"))
-        .map(([i,e])=> listRowHTML(e, {zone:"bag", rider:r, bag:b.id, idx:i}, dupes)).join("");
-      const body = `<div class="bag-list">${rows}${quickAddHTML(r, b.id, "+ lägg till pryl…")}</div>`;
-      const cnt = `${used} item${used===1?"":"s"}`;
-      return `<div class="bag" id="bag-${r}-${b.id}" data-drop="bag" data-rider="${r}" data-bag="${b.id}"><div class="bag-head"><span>${b.emoji} ${b.name}</span>
-        <span class="cnt">${cnt}</span></div>${body}</div>`;
-    }).join("");
-    return `<div class="panel wood bike-panel r-${r}">
-      <div class="panel-title">🚲 ${esc(S.riders[r].name).toUpperCase()}${r===me?" (YOU)":""}
-        <button class="btn small" data-editbags="${r}">BAGS</button></div>
-      ${bikeSVG(r)}
-      <div class="prog"><div class="fill" style="width:${pct}%"></div></div>
-      <span class="prog-lbl lbl">${p.packed}/${p.total} packed${p.total&&pct===100?" · ⭐ ready!":""}</span>
-      <div class="panel" style="margin:0;">${bagsHtml ||
-        '<p class="muted">No bags — hit BAGS to add some.</p>'}</div>
-    </div>`;
-  }).join("");
-}
-
-function renderPile(){
-  const entries = Object.entries(S.pile)
-    .sort((x,y)=> nameSv(def(x[1].id)).localeCompare(nameSv(def(y[1].id)), "sv"));
-  const rows = entries.map(([u,e])=> listRowHTML(e, {zone:"pile", uid:u})).join("");
-  $("#pile-grid").innerHTML = `<div class="bag-list" style="width:100%;">${rows}${quickAddHTML("", "__pile", "+ lägg i högen…")}</div>`;
-}
-
-function renderPersonal(){
-  $("#personal-row").innerHTML = ["r1","r2"].map(r=>{
-    const entries = Object.entries(S.personal[r]||{})
-      .sort((x,y)=> nameSv(def(x[1].id)).localeCompare(nameSv(def(y[1].id)), "sv"));
-    const rows = entries.map(([u,e])=> listRowHTML(e, {zone:"personal", rider:r, uid:u})).join("");
-    const cells = `<div class="bag-list" style="width:100%;">${rows}${quickAddHTML(r, "__personal", "+ lägg till värdesak…")}</div>`;
-    return `<div class="panel personal-card r-${r}" data-drop="personal" data-rider="${r}">
-      <div class="panel-title">🔑 ${esc(S.riders[r].name).toUpperCase()}'S POCKETS
-        <span class="muted">valuables &amp; on-body</span></div>
-      <div class="slot-grid">${cells}</div></div>`;
-  }).join("");
-}
-
-function renderGroupGear(){
-  const carriers = {};   // itemId -> Set of rider names
-  ["r1","r2"].forEach(r=>{
-    bikeItemIds(r).forEach(id=>{
-      if(!def(id).group) return;
-      (carriers[id] = carriers[id] || new Set()).add(S.riders[r].name);
-    });
-  });
-  const dupes = dupeIds();
-  let html = Object.entries(carriers).map(([id,who])=>{
-    const d = def(id);
-    const dup = dupes.has(id);
-    return `<div class="gg-line ${dup?"warn":""}"><span>${d.emoji}</span><span>${esc(nameSv(d))}</span>
-      <span class="who2">${dup ? "⚠ BOTH carry this!" : "→ "+esc([...who].join(", "))}</span></div>`;
-  }).join("");
-  /* non-group dupes still worth flagging */
-  const otherDupes = [...dupes].filter(id=> !def(id).group);
-  if(otherDupes.length){
-    html += `<div class="gg-line warn"><span>‼</span><span>Also doubled up:</span>
-      <span class="who2">${otherDupes.map(id=>def(id).emoji+" "+esc(nameSv(def(id)))).join(", ")}</span></div>`;
-  }
-  $("#gg-list").innerHTML = html || '<p class="muted" style="margin:4px;">No group gear placed yet. Items marked 🤝 in the library count as shared kit.</p>';
-}
-
-function renderHeader(){
-  $("#h-trip").textContent = S.tripName.toUpperCase();
-  $("#h-user").textContent = me ? S.riders[me].name : "?";
-  let cd = "";
-  if(S.startDate){
-    const days = Math.ceil((new Date(S.startDate) - new Date().setHours(0,0,0,0)) / 86400000);
-    cd = days > 1 ? `⏳ ${days} days to go!` : days === 1 ? "⏳ TOMORROW!" :
-         days === 0 ? "🚀 TODAY! GO GO GO!" : "🏁 on the road";
-  }
-  $("#h-count").textContent = cd;
-  $("#btn-pack").textContent = "PACKING: " + (packMode ? "ON" : "OFF");
-  $("#btn-pack").classList.toggle("on", packMode);
-}
-
-function render(){
-  if(!S) return;
-  renderHeader(); renderBikes(); renderPile(); renderPersonal(); renderGroupGear();
-  if(refocus){
-    const el = document.querySelector(`.quickadd[data-rider="${refocus.r}"][data-bag="${refocus.b}"]`);
-    if(el) el.focus();
-    refocus = null;
-  }
-  qaReattach();
-}
-
-function entryAt(ctx){          // read entry at a slot context
-  if(ctx.zone==="bag")      return bagSlots(ctx.rider,ctx.bag)[ctx.idx];
-  if(ctx.zone==="pile")     return ctx.uid ? S.pile[ctx.uid] : null;
-  if(ctx.zone==="personal") return ctx.uid ? S.personal[ctx.rider][ctx.uid] : null;
-  return null;
-}
-function removeAt(ctx){
-  if(ctx.zone==="bag")      delete bagSlots(ctx.rider,ctx.bag)[ctx.idx];
-  if(ctx.zone==="pile")     delete S.pile[ctx.uid];
-  if(ctx.zone==="personal") delete S.personal[ctx.rider][ctx.uid];
-}
-function placeAt(ctx, id, qty){
-  if(ctx.zone==="bag"){
-    bagSlots(ctx.rider,ctx.bag)[ctx.idx] = {id, qty, packed:false};
-  }else if(ctx.zone==="pile"){
-    S.pile[uid()] = {id, qty};
-  }else if(ctx.zone==="personal"){
-    S.personal[ctx.rider][uid()] = {id, qty, packed:false};
-  }
-}
-
-function ctxFromEl(el){
-  const d = el.dataset;
-  return {zone:d.zone, rider:d.rider, bag:d.bag,
-          idx: d.idx !== undefined ? +d.idx : undefined, uid:d.uid};
-}
-
-/* ---------- EXPORT ---------- */
-function exportText(){
-  let out = S.tripName.toUpperCase() + (S.startDate ? "  ("+S.startDate+")" : "") + "\n";
-  out += "=".repeat(40) + "\n";
-  ["r1","r2"].forEach(r=>{
-    out += "\n## " + S.riders[r].name.toUpperCase() + "'S BIKE\n";
-    BAG_TYPES.forEach(b=>{
-      if(!S.bikes[r].bags[b.id]) return;
-      const es = Object.values(bagSlots(r,b.id));
-      if(!es.length) return;
-      out += "\n[" + b.name + "]\n";
-      es.forEach(e=>{
-        const d = def(e.id);
-        out += "  " + (e.packed?"[x] ":"[ ] ") + nameSv(d) + ((e.qty||1)>1?" x"+e.qty:"") + (d.group?"  (group)":"") + "\n";
-      });
-    });
-    const pers = Object.values(S.personal[r]||{});
-    if(pers.length){
-      out += "\n[POCKETS / VALUABLES]\n";
-      pers.forEach(e=>{ out += "  " + (e.packed?"[x] ":"[ ] ") + nameSv(def(e.id)) + ((e.qty||1)>1?" x"+e.qty:"") + "\n"; });
-    }
-    out += "\n";
-  });
-  const pile = Object.values(S.pile);
-  if(pile.length){
-    out += "## THE PILE (still undecided)\n";
-    pile.forEach(e=>{ out += "  - " + nameSv(def(e.id)) + ((e.qty||1)>1?" x"+e.qty:"") + "\n"; });
-  }
-  return out;
-}
-
-/* ---------- QUICK-ADD POPUP PICKER ---------- */
-let qa = null;   // {input, level:"groups"|"cats"|"items", group, cat}
-function itemsInCat(c){
-  return Object.entries(allItems()).filter(([,d])=> d.cat===c)
-    .sort((a,b)=> nameSv(a[1]).localeCompare(nameSv(b[1]), "sv"));
-}
-function qaOpen(input){
-  if(!S) return;
-  const same = qa && qa.input.dataset.rider===input.dataset.rider && qa.input.dataset.bag===input.dataset.bag;
-  if(!same) qa = {input, level:"groups", group:null, cat:null};
-  qa.input = input;
-  qaRender();
-}
-function qaClose(){ qa = null; const p=$("#qa-pop"); if(p) p.style.display="none"; }
-function qaItemRow(id, d, withCat){
-  return `<div class="qa-row" data-qa-item="${esc(id)}"><span>${d.emoji}</span><span>${esc(nameSv(d))}</span>` +
-    (d.group ? `<span>🤝</span>` : "") +
-    (withCat ? `<span class="qa-sub">${esc(CAT_SV[d.cat]||d.cat)}</span>` : "") + `</div>`;
-}
-function qaRender(){
-  if(!qa || !S) return;
-  const pop = $("#qa-pop");
-  const txt = qa.input.value.trim(), q = txt.toLowerCase();
-  let html = "";
-  if(q){
-    const hits = Object.entries(allItems()).filter(([,d])=>
-      nameSv(d).toLowerCase().includes(q) || d.name.toLowerCase().includes(q)).slice(0,30);
-    html = `<div class="qa-head">sök</div>` +
-      (hits.map(([id,d])=> qaItemRow(id,d,true)).join("") || `<div class="qa-empty">inget matchar…</div>`) +
-      `<div class="qa-row qa-new" data-qa-new="1">＋ skapa “${esc(txt)}”</div>`;
-  }else if(qa.level==="groups"){
-    html = `<div class="qa-head">välj kategori</div>` + GROUPS.map((g,i)=>{
-      const n = g.cats.reduce((s,c)=> s+itemsInCat(c).length, 0);
-      return `<div class="qa-row" data-qa-group="${i}"><span>${g.emoji}</span><span>${esc(g.name)}</span><span class="qa-sub">${n} ›</span></div>`;
-    }).join("");
-  }else if(qa.level==="cats"){
-    const g = GROUPS[qa.group];
-    html = `<div class="qa-row qa-back" data-qa-back="groups">‹ ${g.emoji} ${esc(g.name)}</div>` +
-      g.cats.map(c=>`<div class="qa-row" data-qa-cat="${esc(c)}"><span>${esc(CAT_SV[c]||c)}</span><span class="qa-sub">${itemsInCat(c).length} ›</span></div>`).join("");
-  }else{
-    html = `<div class="qa-row qa-back" data-qa-back="cats">‹ ${esc(CAT_SV[qa.cat]||qa.cat)}</div>` +
-      (itemsInCat(qa.cat).map(([id,d])=> qaItemRow(id,d,false)).join("") ||
-       `<div class="qa-empty">tomt här än…</div>`);
-  }
-  pop.innerHTML = html;
-  pop.style.display = "block";
-  const rc = qa.input.getBoundingClientRect();
-  pop.style.left = Math.max(8, Math.min(rc.left, innerWidth-315)) + "px";
-  if(innerHeight - rc.bottom > 250 || rc.top < 250){
-    pop.style.top = (rc.bottom+5)+"px"; pop.style.bottom = "auto";
-  }else{
-    pop.style.bottom = (innerHeight-rc.top+5)+"px"; pop.style.top = "auto";
-  }
-}
-function qaPopClick(ev){
-  const row = ev.target.closest(".qa-row"); if(!row || !qa) return;
-  if(row.hasAttribute("data-qa-group")){ qa.group = +row.getAttribute("data-qa-group"); qa.level="cats"; qaRender(); return; }
-  if(row.hasAttribute("data-qa-cat")){ qa.cat = row.getAttribute("data-qa-cat"); qa.level="items"; qaRender(); return; }
-  if(row.hasAttribute("data-qa-back")){ qa.level = row.getAttribute("data-qa-back"); qaRender(); return; }
-  if(row.hasAttribute("data-qa-new")){ quickAdd(qa.input); return; }
-  const id = row.getAttribute("data-qa-item");
-  if(id){
-    const inp = qa.input;
-    inp.value = "";
-    toast(def(id).emoji + " " + nameSv(def(id)) + " tillagd");
-    addItemTo(inp.dataset.rider, inp.dataset.bag, id);   // render() reattaches the popup
-  }
-}
-/* after re-render, re-bind the popup to the freshly rendered input */
-function qaReattach(){
-  if(!qa) return;
-  const sel = `.quickadd[data-rider="${qa.input.dataset.rider}"][data-bag="${qa.input.dataset.bag}"]`;
-  const el = document.querySelector(sel);
-  if(el){ qa.input = el; qaRender(); } else qaClose();
-}
-
-/* ---------- DRAG & DROP (pointer events — desktop + touch) ---------- */
-let drag = null;   // {ctx, ghost}
-function moveGhost(x,y){ if(drag && drag.ghost){ drag.ghost.style.left=x+"px"; drag.ghost.style.top=y+"px"; } }
-function dropTargetAt(x,y){
-  let el = null;
-  try{ el = document.elementFromPoint(x,y); }catch(e){}
-  if(!el || !el.closest) return null;
-  const bs = el.closest("[data-bagshape]");
-  if(bs){
-    const r = bs.getAttribute("data-rider"), bid = bs.getAttribute("data-bagshape");
-    if(S.bikes[r].bags[bid]) return {el:bs, zone:"bag", rider:r, bag:bid};
-    return null;
-  }
-  const c = el.closest("[data-drop]");
-  if(!c) return null;
-  return {el:c, zone:c.getAttribute("data-drop"), rider:c.getAttribute("data-rider"), bag:c.getAttribute("data-bag")};
-}
-document.addEventListener("pointerdown", ev=>{
-  const h = ev.target.closest && ev.target.closest(".li-drag");
-  if(!h) return;
-  const row = h.closest(".li"); if(!row) return;
-  const ctx = ctxFromEl(row); const e = entryAt(ctx); if(!e) return;
-  ev.preventDefault();
-  const d = def(e.id);
-  const g = document.createElement("div");
-  g.id = "drag-ghost";
-  g.textContent = d.emoji + " " + nameSv(d) + ((e.qty||1)>1 ? " ×"+e.qty : "");
-  document.body.appendChild(g);
-  drag = {ctx, ghost:g};
-  document.body.classList.add("dragging");
-  moveGhost(ev.clientX, ev.clientY);
+function chooseSugg(text){ addItem(text); addEl.value=''; buildSugg(''); addEl.focus(); }
+function moveSugg(dir){ const items=[...suggEl.querySelectorAll('.sugg-item')]; if(!items.length)return;
+  activeSugg=(activeSugg+dir+items.length)%items.length; items.forEach((el,i)=>el.classList.toggle('active',i===activeSugg)); }
+addEl.addEventListener('input',e=>buildSugg(e.target.value));
+addEl.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){ e.preventDefault(); moveSugg(1); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); moveSugg(-1); }
+  else if(e.key==='Enter'){ e.preventDefault();
+    const items=[...suggEl.querySelectorAll('.sugg-item')];
+    if(activeSugg>=0&&items[activeSugg]) chooseSugg(items[activeSugg].dataset.text);
+    else if(addEl.value.trim()) chooseSugg(addEl.value.trim());
+  } else if(e.key==='Escape'){ buildSugg(''); }
 });
-document.addEventListener("pointermove", ev=>{
-  if(!drag) return;
-  moveGhost(ev.clientX, ev.clientY);
-  const t = dropTargetAt(ev.clientX, ev.clientY);
-  $$(".droptgt").forEach(el=> el.classList.remove("droptgt"));
-  if(t) t.el.classList.add("droptgt");
-});
-function endDrag(ev, doDrop){
-  if(!drag) return;
-  $$(".droptgt").forEach(el=> el.classList.remove("droptgt"));
-  if(drag.ghost) drag.ghost.remove();
-  document.body.classList.remove("dragging");
-  const dr = drag; drag = null;
-  if(!doDrop || !ev) return;
-  const t = dropTargetAt(ev.clientX, ev.clientY);
-  if(!t) return;
-  /* dropping where it already lives = no-op */
-  if(t.zone==="bag" && dr.ctx.zone==="bag" && t.rider===dr.ctx.rider && t.bag===dr.ctx.bag) return;
-  if(t.zone==="personal" && dr.ctx.zone==="personal" && t.rider===dr.ctx.rider) return;
-  if(t.zone==="pile" && dr.ctx.zone==="pile") return;
-  const e = entryAt(dr.ctx); if(!e) return;
-  removeAt(dr.ctx);
-  if(t.zone==="pile"){
-    const same = Object.values(S.pile).find(x=> x.id===e.id);
-    if(same){ same.qty = (same.qty||1)+(e.qty||1); } else S.pile[uid()] = {id:e.id, qty:e.qty||1};
-  }else if(t.zone==="personal"){
-    const same = Object.values(S.personal[t.rider]).find(x=> x.id===e.id);
-    if(same){ same.qty = (same.qty||1)+(e.qty||1); }
-    else S.personal[t.rider][uid()] = {id:e.id, qty:e.qty||1, packed:!!e.packed};
-  }else{
-    const slots = bagSlots(t.rider, t.bag);
-    const same = Object.values(slots).find(x=> x.id===e.id);
-    if(same){ same.qty = (same.qty||1)+(e.qty||1); }
-    else{ const n = slotCount(slots); for(let i=0;i<n;i++){ if(!slots[i]){ slots[i] = {id:e.id, qty:e.qty||1, packed:!!e.packed}; break; } } }
-  }
-  toast(def(e.id).emoji + " " + nameSv(def(e.id)) + " flyttad");
-  commit();
-  /* plop! the receiving bag bounces (render is synchronous, so query the fresh DOM) */
-  if(t.zone==="bag"){
-    const el = document.querySelector(`.bagshape[data-rider="${t.rider}"][data-bagshape="${t.bag}"]`);
-    if(el){ el.classList.add("plop"); setTimeout(()=> el.classList.remove("plop"), 500); }
-  }
-}
-document.addEventListener("pointerup", ev=> endDrag(ev, true));
-document.addEventListener("pointercancel", ev=> endDrag(ev, false));
+addEl.addEventListener('blur',()=>setTimeout(()=>suggEl.classList.remove('open'),120));
 
-/* ---------- EVENTS ---------- */
-document.addEventListener("mousemove", ev=>{
-  /* tooltip */
-  const t = $("#tooltip");
-  const bs = ev.target.closest && ev.target.closest("[data-bagshape]");
-  if(bs && S){
-    const r = bs.getAttribute("data-rider"), bid = bs.getAttribute("data-bagshape");
-    const bt = BAG_TYPES.find(b=>b.id===bid);
-    const on = !!S.bikes[r].bags[bid];
-    let inner = `<div>${bt.emoji} ${bt.name}</div><div class="t-cat">${esc(S.riders[r].name)}'s bike</div>`;
-    if(on){
-      const es = Object.values(bagSlots(r,bid));
-      const pk = es.filter(e=>e.packed).length;
-      const cap = (BIKE_GEO[bid]&&BIKE_GEO[bid].cap)||8;
-      inner += `<div class="t-extra">${es.length} items · ${pk} packed · ${Math.min(100,Math.round(es.length/cap*100))}% fullt</div>`;
-      if(es.length) inner += `<div class="t-extra">${es.slice(0,9).map(e=>def(e.id).emoji).join(" ")}</div>`;
-      inner += es.length ? `<div class="t-extra">click to jump to bag</div>` : "";
-    }else{
-      inner += `<div class="t-grp">click to add this bag</div>`;
-    }
-    t.innerHTML = inner; t.style.display = "block";
-    t.style.left = Math.min(ev.clientX+18, innerWidth-270)+"px";
-    t.style.top  = Math.min(ev.clientY+14, innerHeight-130)+"px";
-    return;
-  }
-  const row = ev.target.closest && ev.target.closest(".li[data-zone]");
-  let entry = null, id = null;
-  if(row){
-    entry = entryAt(ctxFromEl(row)); id = entry && entry.id;
-  }
-  if(id){
-    const d = def(id);
-    const dupes = dupeIds();
-    t.innerHTML = `<div>${d.emoji} ${esc(nameSv(d))}</div>` +
-      `<div class="t-cat">${esc(CAT_SV[d.cat]||d.cat)}</div>` +
-      (d.group ? `<div class="t-grp">🤝 group gear</div>` : "") +
-      ((entry.qty||1)>1 ? `<div class="t-extra">qty: ${entry.qty}</div>` : "") +
-      (entry.packed ? `<div class="t-grp">✔ packed</div>` : "") +
-      (dupes.has(id) ? `<div class="t-dupe">! also on the other bike</div>` : "");
-    t.style.display = "block";
-    t.style.left = Math.min(ev.clientX+18, innerWidth-270)+"px";
-    t.style.top  = Math.min(ev.clientY+14, innerHeight-110)+"px";
-  }else t.style.display = "none";
+/* ---------- sync panel ---------- */
+const overlay=document.getElementById('overlay');
+function openSync(){
+  document.getElementById('cfg').value = fbConfig?JSON.stringify(fbConfig,null,2):'';
+  document.getElementById('trip').value = tripId;
+  document.getElementById('modalnote').textContent = mode==='firebase' ? ('Ansluten · trip: '+tripId) : 'Kör lokalt på denna enhet just nu.';
+  overlay.hidden=false;
+}
+function closeSync(){ overlay.hidden=true; }
+document.getElementById('syncbtn').addEventListener('click',openSync);
+document.getElementById('closem').addEventListener('click',closeSync);
+overlay.addEventListener('click',e=>{ if(e.target===overlay) closeSync(); });
+document.getElementById('resync').addEventListener('click',forceResync);
+document.getElementById('golocal').addEventListener('click',()=>{ goLocal(); document.getElementById('modalnote').textContent='Kör lokalt på denna enhet.'; closeSync(); });
+document.getElementById('connect').addEventListener('click',()=>{
+  const note=document.getElementById('modalnote');
+  let cfg; const raw=document.getElementById('cfg').value.trim();
+  try{ cfg=JSON.parse(raw); }catch(e){ note.textContent='⚠ Ogiltig JSON i config-fältet.'; return; }
+  if(!cfg.databaseURL){ note.textContent='⚠ Config saknar "databaseURL" (krävs för Realtime Database).'; return; }
+  const trip=(document.getElementById('trip').value||'').trim().toLowerCase().replace(/[^a-z0-9-]+/g,'-').replace(/(^-|-$)/g,'')||'eric-wojtek';
+  if(fbConnect(cfg,trip)){ note.textContent='✓ Ansluten · trip: '+tripId; setTimeout(closeSync,800); }
+});
+document.getElementById('pushdefaults').addEventListener('click',()=>{
+  const note=document.getElementById('modalnote');
+  if(!confirm('Fyll listan med hela grundlistan (allt vi packade) och spara? Det skriver över nuvarande innehåll i trippen "'+tripId+'" för er båda.')) return;
+  seed(); renderAll(); goTo(0); commit(false);
+  note.textContent = mode==='firebase' ? ('✓ Grundlistan pushad till trips/'+tripId) : '✓ Grundlistan sparad lokalt (anslut för att pusha)';
 });
 
-document.addEventListener("click", ev=>{
-  /* quick-add popup: close when clicking elsewhere */
-  if(qa && !ev.target.closest("#qa-pop") && !ev.target.classList.contains("quickadd")) qaClose();
-
-  const pop = ev.target.closest && ev.target.closest("#qa-pop");
-  if(pop){ qaPopClick(ev); return; }
-
-  const bs = ev.target.closest && ev.target.closest("[data-bagshape]");
-  if(bs){ bagShapeClick(bs.getAttribute("data-rider"), bs.getAttribute("data-bagshape")); return; }
-
-  const lb = ev.target.closest("[data-lact]");
-  if(lb){
-    const row = lb.closest(".li"); if(!row) return;
-    const ctx = ctxFromEl(row); const e = entryAt(ctx); if(!e) return;
-    const act = lb.getAttribute("data-lact");
-    if(act==="pack"){ e.packed = !e.packed; }
-    else if(act==="plus"){ e.qty = (e.qty||1)+1; }
-    else if(act==="minus"){ if((e.qty||1)>1) e.qty--; else return; }
-    else if(act==="pile"){ S.pile[uid()] = {id:e.id, qty:e.qty||1}; removeAt(ctx); }
-    else if(act==="del"){ toast("🗑️ " + nameSv(def(e.id)) + " borttagen"); removeAt(ctx); }
-    commit(); return;
-  }
-
-  const eb = ev.target.closest("[data-editbags]");
-  if(eb){ openBagEditor(eb.dataset.editbags); return; }
-});
-
-document.addEventListener("keydown", ev=>{
-  if(ev.key==="Escape"){ qaClose(); endDrag(null, false); }
-  if(ev.key==="Enter" && ev.target.classList && ev.target.classList.contains("quickadd")){
-    ev.preventDefault(); quickAdd(ev.target);
+/* ---------- reset ---------- */
+document.getElementById('reset').addEventListener('click',()=>{
+  if(confirm('Återställ till grundlistan? Era tillägg och bockar tas bort för er båda.')){
+    seed(); scheduleSave(); renderAll(); addEl.value=''; buildSugg(''); goTo(0);
   }
 });
-document.addEventListener("focusin", ev=>{
-  if(ev.target.classList && ev.target.classList.contains("quickadd")) qaOpen(ev.target);
-});
-document.addEventListener("input", ev=>{
-  if(ev.target.classList && ev.target.classList.contains("quickadd") && qa) qaRender();
-});
+window.addEventListener('resize',()=>{ vp.scrollLeft=activeIdx*vp.clientWidth; });
 
-/* header buttons */
-$("#btn-pack").onclick  = ()=>{ packMode = !packMode; renderHeader(); toast(packMode ? "PACKING MODE: tap items as they go in the bag" : "packing mode off"); };
-$("#btn-switch").onclick= ()=>{ me=null; store.del(LS.me); showIdentity(); };
-$("#btn-export").onclick= ()=>{ $("#export-text").value = exportText(); $("#m-export").classList.add("show"); };
-$("#export-copy").onclick=()=>{ navigator.clipboard.writeText($("#export-text").value).then(()=>toast("copied!")); };
-$("#m-export-close").onclick=()=>$("#m-export").classList.remove("show");
-
-/* sync modal */
-$("#btn-sync").onclick = ()=>{
-  $("#fb-config").value = store.get(LS.fbcfg) || BAKED_FB_CONFIG;
-  $("#fb-trip").value   = store.get(LS.fbtrip) || BAKED_TRIP_ID;
-  $("#fb-status").textContent = fb.connected ? "Currently: CONNECTED ✔" : "Currently: local only";
-  $("#m-sync").classList.add("show");
-};
-$("#fb-connect").onclick = ()=>{
-  if(typeof firebase === "undefined"){ $("#fb-status").textContent = "Firebase SDK didn't load — check your internet connection."; return; }
-  connectFirebase($("#fb-config").value.trim(), $("#fb-trip").value.trim());
-};
-$("#fb-disconnect").onclick = disconnectFirebase;
-$("#m-sync-close").onclick = ()=>$("#m-sync").classList.remove("show");
-
-/* custom item modal */
-$("#btn-custom").onclick = ()=>{
-  $("#cu-cat").innerHTML = CATS.map(c=>`<option>${esc(c)}</option>`).join("");
-  $("#cu-cat").value = "Custom";
-  $("#m-custom").classList.add("show");
-};
-$("#cu-add").onclick = ()=>{
-  const name = $("#cu-name").value.trim();
-  if(!name){ toast("give it a name!"); return; }
-  const id = "c" + uid();
-  S.custom[id] = {name, emoji: $("#cu-emoji").value.trim() || "📦",
-                  cat: $("#cu-cat").value, group: $("#cu-group").checked};
-  const csv = $("#cu-sv").value.trim(); if(csv) S.custom[id].sv = csv;
-  $("#cu-name").value = ""; $("#cu-emoji").value = ""; $("#cu-sv").value = ""; $("#cu-group").checked = false;
-  $("#m-custom").classList.remove("show");
-  commit(); toast("added to library: " + name);
-};
-$("#m-custom-close").onclick = ()=>$("#m-custom").classList.remove("show");
-
-/* bag editor */
-let bagRider = null;
-function openBagEditor(r){
-  bagRider = r;
-  $("#bags-title").textContent = "🚲 " + S.riders[r].name.toUpperCase() + "'S BAGS";
-  $("#bags-list").innerHTML = BAG_TYPES.map(b=>`
-    <label style="display:flex;align-items:center;gap:10px;margin:8px 0;font-size:15px;">
-      <input type="checkbox" data-bagtoggle="${b.id}" ${S.bikes[r].bags[b.id]?"checked":""}>
-      ${b.emoji} ${b.name}</label>`).join("");
-  $("#m-bags").classList.add("show");
-}
-$("#bags-list").addEventListener("change", ev=>{
-  const t = ev.target.closest("[data-bagtoggle]"); if(!t) return;
-  const bid = t.dataset.bagtoggle;
-  if(!t.checked){
-    /* removing a bag dumps its contents into the pile */
-    const slots = bagSlots(bagRider,bid);
-    Object.values(slots).forEach(e=>{ S.pile[uid()] = {id:e.id, qty:e.qty||1}; });
-    delete S.inv[bagKey(bagRider,bid)];
-  }
-  S.bikes[bagRider].bags[bid] = t.checked;
-  commit();
-});
-$("#m-bags-close").onclick = ()=>$("#m-bags").classList.remove("show");
-
-/* close modals on backdrop click */
-$$(".modal-bg").forEach(m=> m.addEventListener("click", ev=>{ if(ev.target===m) m.classList.remove("show"); }));
-
-/* ---------- SCREENS & INIT ---------- */
-function showIdentity(){
-  $("#screen-identity").style.display="block";
-  $("#screen-main").style.display="none"; $("#hdr").style.display="none";
-  $("#id-r1").textContent = "🚴 " + S.riders.r1.name;
-  $("#id-r2").textContent = "🚴 " + S.riders.r2.name;
-}
-function showMain(){
-  $("#screen-identity").style.display="none";
-  $("#screen-main").style.display="block"; $("#hdr").style.display="flex";
-  render();
+/* ---------- countdown to departure ---------- */
+const DEPARTURE=new Date(2026,5,29); // måndag, vecka 27 — ändra här vid behov
+function updateCountdown(){
+  const el=document.getElementById('daysleft'); if(!el) return;
+  const days=Math.ceil((DEPARTURE - new Date())/86400000);
+  el.textContent = days>1 ? days+' DAGAR KVAR'
+    : days===1 ? '1 DAG KVAR'
+    : days===0 ? 'AVFÄRD IDAG'
+    : 'PÅ TUR';
 }
 
-$("#id-r1").onclick = ()=>{ me="r1"; store.set(LS.me,"r1"); showMain(); };
-$("#id-r2").onclick = ()=>{ me="r2"; store.set(LS.me,"r2"); showMain(); };
-
+/* ---------- init ---------- */
 (function init(){
-  try{
-    const saved = store.get(LS.state);
-    if(saved) S = normalize(JSON.parse(saved));
-  }catch(e){}
-  if(!S){
-    /* baked-in trip — no setup screen needed */
-    S = blankState(BAKED_TRIP_NAME, "", BAKED_RIDERS[0], BAKED_RIDERS[1]);
-    saveLocal();
-  }
-  me = store.get(LS.me);
-  updateSyncDot();
-  if(!me){ showIdentity(); } else { showMain(); }
-  /* auto-connect firebase (saved settings win over baked-in defaults) */
-  const cfg = store.get(LS.fbcfg) || BAKED_FB_CONFIG;
-  const trip = store.get(LS.fbtrip) || BAKED_TRIP_ID;
-  if(cfg && trip){
-    const tryConnect = ()=> typeof firebase !== "undefined"
-      ? connectFirebase(cfg, trip)
-      : setTimeout(tryConnect, 800);
-    tryConnect();
-  }
+  buildShell();
+  if(!loadLocal()) seed();      // omedelbar målning från lokal cache eller grundlista
+  renderAll();
+  updateCountdown();
+  setActive(0);
+  if(mode==='firebase' && fbConfig){ fbConnect(fbConfig, tripId, true); }  // tyst auto-anslutning; molnet skriver över när det svarar
+  else { mode='local'; setSync('ok'); }
 })();
 </script>
-
-<!-- Firebase compat SDK (only used once you connect via SYNC) -->
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 
 </body>
 </html>
