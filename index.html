@@ -92,7 +92,12 @@ body{margin:0; background:var(--paper); color:var(--text);
 .cbox:checked{background:var(--green); border-color:var(--green)}
 .cbox:checked::after{content:""; position:absolute; left:5.5px; top:2px; width:5px; height:9.5px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(42deg)}
 .cbox:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
-.it-text{flex:1; min-width:0; font-size:14.5px; line-height:1.35; padding-top:1px}
+.it-text{flex:1; min-width:0; font-size:14.5px; line-height:1.35; padding-top:1px; cursor:text; border-radius:5px; transition:background .12s}
+.it-text:hover{background:#fbeede}
+.item.done .it-text:hover{background:#eef1f3}
+.it-text:focus-visible{outline:2px solid var(--amber); outline-offset:1px}
+.it-edit{flex:1; min-width:0; font:inherit; font-size:14.5px; line-height:1.35; padding:2px 6px; margin:-2px 0; border:1px solid var(--amber); border-radius:6px; background:#fff; color:var(--text)}
+.it-edit:focus{outline:2px solid var(--amber); outline-offset:0}
 .del{flex:none; width:24px; height:24px; border:none; background:none; color:#c8cfd5; cursor:pointer; font-size:16px; line-height:1; border-radius:6px; opacity:.7}
 .del:hover{color:#b04a4a; background:#f7eaea; opacity:1}
 .del:focus-visible{outline:2px solid var(--amber); outline-offset:2px; opacity:1}
@@ -362,11 +367,32 @@ function itemEl(it){
   const el=document.createElement('div');
   el.className='item'+(it.checked?' done':''); el.dataset.id=it.id;
   el.innerHTML=`<input type="checkbox" class="cbox" ${it.checked?'checked':''} aria-label="Packad: ${escapeHtml(it.text)}">
-    <div class="it-text">${escapeHtml(it.text)}</div>
+    <div class="it-text" tabindex="0" role="button" title="Klicka för att ändra">${escapeHtml(it.text)}</div>
     <button class="del" aria-label="Ta bort ${escapeHtml(it.text)}">×</button>`;
   el.querySelector('.cbox').addEventListener('change',()=>toggle(it.id));
   el.querySelector('.del').addEventListener('click',()=>remove(it.id));
+  const txt=el.querySelector('.it-text');
+  txt.addEventListener('click',()=>beginEdit(el,it));
+  txt.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); beginEdit(el,it); } });
   return el;
+}
+/* swap the text node for an input, commit on Enter/blur, cancel on Esc */
+function beginEdit(el,it){
+  if(el.querySelector('.it-edit')) return;            // redan i redigeringsläge
+  const txt=el.querySelector('.it-text');
+  const inp=document.createElement('input');
+  inp.type='text'; inp.className='it-edit'; inp.value=it.text;
+  inp.setAttribute('aria-label','Ändra namn');
+  txt.replaceWith(inp);
+  inp.focus(); inp.select();
+  let done=false;
+  const commitEdit=()=>{ if(done) return; done=true; rename(it.id, inp.value); };
+  const cancel=()=>{ if(done) return; done=true; renderPanel(it.cat,false); };
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.preventDefault(); commitEdit(); }
+    else if(e.key==='Escape'){ e.preventDefault(); cancel(); }
+  });
+  inp.addEventListener('blur',commitEdit);
 }
 function renderPanel(cat,animate){
   const listEl=document.getElementById('list-'+cat); if(!listEl) return;
@@ -405,6 +431,13 @@ function updateProgress(){
 /* ---------- actions ---------- */
 function toggle(id){ const it=state.items.find(i=>i.id===id); if(!it)return; it.checked=!it.checked; scheduleSave(); renderPanel(it.cat,true); updateProgress(); }
 function remove(id){ const it=state.items.find(i=>i.id===id); if(!it)return; const cat=it.cat; state.items=state.items.filter(i=>i.id!==id); scheduleSave(); renderPanel(cat,true); updateProgress(); }
+function rename(id,text){
+  const it=state.items.find(i=>i.id===id); if(!it) return;
+  const t=text.trim();
+  if(!t){ remove(id); return; }            // tomt -> ta bort raden
+  if(t===it.text) return;                  // oförändrad
+  it.text=t; it.custom=true; scheduleSave(); renderPanel(it.cat,true); updateProgress();
+}
 function addItem(text){
   const t=text.trim(); if(!t) return; const cat=CATS[activeIdx].id;
   const exist=state.items.find(i=>i.cat===cat&&i.text.toLowerCase()===t.toLowerCase());
